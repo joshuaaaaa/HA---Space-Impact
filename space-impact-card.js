@@ -6,6 +6,10 @@ class SpaceImpactCard extends HTMLElement {
     this.gameOver = false;
     this.paused = false;
     this.score = 0;
+    this.level = 1;
+    this.bossActive = false;
+    this.boss = null;
+    this.nextBossScore = 500;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemies = [];
@@ -108,6 +112,7 @@ class SpaceImpactCard extends HTMLElement {
         <div class="info">
           <div>SCORE: <span id="score">0</span></div>
           <div>SPACE IMPACT</div>
+          <div>LEVEL: <span id="level">1</span></div>
         </div>
 
         <div class="screen">
@@ -130,6 +135,7 @@ class SpaceImpactCard extends HTMLElement {
     this.canvas = this.shadowRoot.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
     this.scoreElement = this.shadowRoot.getElementById('score');
+    this.levelElement = this.shadowRoot.getElementById('level');
     this.gameOverElement = this.shadowRoot.getElementById('gameOver');
     this.finalScoreElement = this.shadowRoot.getElementById('finalScore');
 
@@ -191,6 +197,10 @@ class SpaceImpactCard extends HTMLElement {
     this.gameOver = false;
     this.paused = false;
     this.score = 0;
+    this.level = 1;
+    this.bossActive = false;
+    this.boss = null;
+    this.nextBossScore = 500;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemies = [];
@@ -206,6 +216,7 @@ class SpaceImpactCard extends HTMLElement {
     this.gameSpeed = 1;
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
+    this.updateLevel();
   }
 
   togglePause() {
@@ -291,16 +302,42 @@ class SpaceImpactCard extends HTMLElement {
   spawnMeteorite() {
     const now = Date.now();
     if (now - this.lastMeteoriteSpawn > this.meteoriteSpawnInterval) {
-      // Spawn meteorite at random vertical position in middle area
+      // Determine meteorite size (small, medium, large)
+      const rand = Math.random();
+      let size, points, health;
+
+      if (rand < 0.6) {
+        // Small meteorite - 60% chance
+        size = 'small';
+        points = 15;
+        health = 1;
+      } else if (rand < 0.9) {
+        // Medium meteorite - 30% chance
+        size = 'medium';
+        points = 25;
+        health = 2;
+      } else {
+        // Large meteorite - 10% chance
+        size = 'large';
+        points = 40;
+        health = 3;
+      }
+
+      const sizeMap = { small: 10, medium: 14, large: 18 };
+
       const meteorite = {
         type: 'meteorite',
+        size: size,
         x: this.canvas.width,
         y: 30 + Math.random() * (this.canvas.height - 60),
-        width: 10,
-        height: 10,
-        speed: 1.8 * this.gameSpeed,
+        width: sizeMap[size],
+        height: sizeMap[size],
+        speed: (size === 'large' ? 1.3 : size === 'medium' ? 1.5 : 1.8) * this.gameSpeed,
         rotation: 0,
-        rotationSpeed: 0.1
+        rotationSpeed: 0.1,
+        health: health,
+        maxHealth: health,
+        points: points
       };
       this.meteorites.push(meteorite);
       this.lastMeteoriteSpawn = now;
@@ -310,8 +347,53 @@ class SpaceImpactCard extends HTMLElement {
     }
   }
 
+  spawnBoss() {
+    if (this.bossActive || this.boss) return;
+
+    this.bossActive = true;
+    const bossHealth = 20 + (this.level * 5); // Health increases with level
+
+    this.boss = {
+      type: 'boss',
+      x: this.canvas.width,
+      y: this.canvas.height / 2 - 15,
+      width: 30,
+      height: 30,
+      speed: 0.8,
+      health: bossHealth,
+      maxHealth: bossHealth,
+      movePattern: 0,
+      moveSpeed: 1,
+      moveDirection: 1
+    };
+  }
+
+  updateBoss() {
+    if (!this.boss) return;
+
+    // Move boss left
+    if (this.boss.x > this.canvas.width - 80) {
+      this.boss.x -= this.boss.speed;
+    } else {
+      // Vertical movement pattern
+      this.boss.movePattern += 0.05;
+      this.boss.y += Math.sin(this.boss.movePattern) * this.boss.moveSpeed;
+
+      // Keep boss in bounds
+      if (this.boss.y < 10) this.boss.y = 10;
+      if (this.boss.y > this.canvas.height - this.boss.height - 10) {
+        this.boss.y = this.canvas.height - this.boss.height - 10;
+      }
+    }
+  }
+
   updateGame(deltaTime) {
     if (!this.gameStarted || this.gameOver || this.paused) return;
+
+    // Check if boss should spawn
+    if (this.score >= this.nextBossScore && !this.bossActive && !this.boss) {
+      this.spawnBoss();
+    }
 
     // Move player
     if (this.keys['ArrowUp'] && this.player.y > 5) {
@@ -327,22 +409,33 @@ class SpaceImpactCard extends HTMLElement {
       return bullet.x < this.canvas.width;
     });
 
-    // Spawn and move enemies
-    this.spawnEnemy();
+    // Update boss
+    if (this.boss) {
+      this.updateBoss();
+    }
+
+    // Spawn and move enemies (don't spawn during boss fight)
+    if (!this.bossActive) {
+      this.spawnEnemy();
+    }
     this.enemies = this.enemies.filter(enemy => {
       enemy.x -= enemy.speed;
       return enemy.x > -enemy.width;
     });
 
-    // Spawn and move obstacles
-    this.spawnObstacle();
+    // Spawn and move obstacles (don't spawn during boss fight)
+    if (!this.bossActive) {
+      this.spawnObstacle();
+    }
     this.obstacles = this.obstacles.filter(obstacle => {
       obstacle.x -= obstacle.speed;
       return obstacle.x > -obstacle.width;
     });
 
-    // Spawn and move meteorites
-    this.spawnMeteorite();
+    // Spawn and move meteorites (don't spawn during boss fight)
+    if (!this.bossActive) {
+      this.spawnMeteorite();
+    }
     this.meteorites = this.meteorites.filter(meteorite => {
       meteorite.x -= meteorite.speed;
       meteorite.rotation += meteorite.rotationSpeed;
@@ -373,13 +466,54 @@ class SpaceImpactCard extends HTMLElement {
       this.meteorites.forEach((meteorite, meteoriteIndex) => {
         if (this.checkCollision(bullet, meteorite)) {
           this.bullets.splice(bulletIndex, 1);
-          this.meteorites.splice(meteoriteIndex, 1);
+          meteorite.health--;
+
+          // Create explosion particles
           this.createExplosion(meteorite.x + meteorite.width/2, meteorite.y + meteorite.height/2);
-          this.score += 15;
-          this.updateScore();
+
+          if (meteorite.health <= 0) {
+            this.meteorites.splice(meteoriteIndex, 1);
+            this.score += meteorite.points;
+            this.updateScore();
+          }
         }
       });
     });
+
+    // Check collisions - bullets vs boss
+    if (this.boss) {
+      this.bullets.forEach((bullet, bulletIndex) => {
+        if (this.checkCollision(bullet, this.boss)) {
+          this.bullets.splice(bulletIndex, 1);
+          this.boss.health--;
+
+          // Create explosion particles
+          this.createExplosion(bullet.x, bullet.y);
+
+          if (this.boss.health <= 0) {
+            // Boss defeated!
+            this.createExplosion(this.boss.x + this.boss.width/2, this.boss.y + this.boss.height/2);
+            this.createExplosion(this.boss.x + this.boss.width/3, this.boss.y + this.boss.height/3);
+            this.createExplosion(this.boss.x + this.boss.width*2/3, this.boss.y + this.boss.height*2/3);
+
+            this.score += 100 + (this.level * 50);
+            this.updateScore();
+
+            this.boss = null;
+            this.bossActive = false;
+            this.level++;
+            this.nextBossScore = this.score + 500;
+            this.updateLevel();
+
+            // Increase difficulty
+            if (this.enemySpawnInterval > 600) {
+              this.enemySpawnInterval -= 50;
+            }
+            this.gameSpeed += 0.15;
+          }
+        }
+      });
+    }
 
     // Check collisions - player vs enemies
     this.enemies.forEach(enemy => {
@@ -401,6 +535,11 @@ class SpaceImpactCard extends HTMLElement {
         this.endGame();
       }
     });
+
+    // Check collisions - player vs boss
+    if (this.boss && this.checkCollision(this.player, this.boss)) {
+      this.endGame();
+    }
 
     // Update particles
     this.particles = this.particles.filter(particle => {
@@ -439,6 +578,10 @@ class SpaceImpactCard extends HTMLElement {
 
   updateScore() {
     this.scoreElement.textContent = this.score;
+  }
+
+  updateLevel() {
+    this.levelElement.textContent = this.level;
   }
 
   drawPixel(x, y, size = 2) {
@@ -549,24 +692,107 @@ class SpaceImpactCard extends HTMLElement {
     this.meteorites.forEach(meteorite => {
       const mx = Math.floor(meteorite.x);
       const my = Math.floor(meteorite.y);
+      const size = meteorite.size;
 
-      // Draw irregular rock shape
-      // Center mass
-      this.drawPixel(mx + 3, my + 3, 2);
-      this.drawPixel(mx + 5, my + 3, 2);
-      this.drawPixel(mx + 3, my + 5, 2);
-      this.drawPixel(mx + 5, my + 5, 2);
-
-      // Irregular edges
-      this.drawPixel(mx + 1, my + 4, 2);
-      this.drawPixel(mx + 7, my + 4, 2);
-      this.drawPixel(mx + 4, my + 1, 2);
-      this.drawPixel(mx + 4, my + 7, 2);
-
-      // Corner pieces for irregular shape
-      this.drawPixel(mx + 2, my + 2, 2);
-      this.drawPixel(mx + 6, my + 6, 2);
+      if (size === 'small') {
+        // Small meteorite (10px)
+        this.drawPixel(mx + 3, my + 3, 2);
+        this.drawPixel(mx + 5, my + 3, 2);
+        this.drawPixel(mx + 3, my + 5, 2);
+        this.drawPixel(mx + 5, my + 5, 2);
+        this.drawPixel(mx + 1, my + 4, 2);
+        this.drawPixel(mx + 7, my + 4, 2);
+        this.drawPixel(mx + 4, my + 1, 2);
+        this.drawPixel(mx + 4, my + 7, 2);
+        this.drawPixel(mx + 2, my + 2, 2);
+        this.drawPixel(mx + 6, my + 6, 2);
+      } else if (size === 'medium') {
+        // Medium meteorite (14px)
+        this.drawPixel(mx + 4, my + 4, 2);
+        this.drawPixel(mx + 6, my + 4, 2);
+        this.drawPixel(mx + 8, my + 4, 2);
+        this.drawPixel(mx + 4, my + 6, 2);
+        this.drawPixel(mx + 6, my + 6, 2);
+        this.drawPixel(mx + 8, my + 6, 2);
+        this.drawPixel(mx + 4, my + 8, 2);
+        this.drawPixel(mx + 6, my + 8, 2);
+        this.drawPixel(mx + 8, my + 8, 2);
+        this.drawPixel(mx + 2, my + 5, 2);
+        this.drawPixel(mx + 10, my + 5, 2);
+        this.drawPixel(mx + 5, my + 2, 2);
+        this.drawPixel(mx + 5, my + 10, 2);
+        this.drawPixel(mx + 3, my + 3, 2);
+        this.drawPixel(mx + 9, my + 9, 2);
+      } else {
+        // Large meteorite (18px)
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            this.drawPixel(mx + 6 + i * 2, my + 6 + j * 2, 2);
+          }
+        }
+        this.drawPixel(mx + 3, my + 7, 2);
+        this.drawPixel(mx + 13, my + 7, 2);
+        this.drawPixel(mx + 7, my + 3, 2);
+        this.drawPixel(mx + 7, my + 13, 2);
+        this.drawPixel(mx + 4, my + 4, 2);
+        this.drawPixel(mx + 12, my + 12, 2);
+        this.drawPixel(mx + 4, my + 12, 2);
+        this.drawPixel(mx + 12, my + 4, 2);
+        this.drawPixel(mx + 2, my + 8, 2);
+        this.drawPixel(mx + 14, my + 8, 2);
+      }
     });
+  }
+
+  drawBoss() {
+    if (!this.boss) return;
+
+    this.ctx.fillStyle = '#2d3a1f';
+    const bx = Math.floor(this.boss.x);
+    const by = Math.floor(this.boss.y);
+
+    // Draw large boss ship
+    // Main body
+    for (let i = 0; i < 12; i += 2) {
+      this.drawPixel(bx + i, by + 14, 2);
+    }
+    for (let i = 0; i < 8; i += 2) {
+      this.drawPixel(bx + 4 + i, by + 12, 2);
+      this.drawPixel(bx + 4 + i, by + 16, 2);
+    }
+
+    // Wings
+    this.drawPixel(bx + 6, by + 8, 2);
+    this.drawPixel(bx + 6, by + 10, 2);
+    this.drawPixel(bx + 6, by + 18, 2);
+    this.drawPixel(bx + 6, by + 20, 2);
+    this.drawPixel(bx + 4, by + 10, 2);
+    this.drawPixel(bx + 4, by + 18, 2);
+
+    // Cockpit/center
+    this.drawPixel(bx + 8, by + 14, 2);
+    this.drawPixel(bx + 10, by + 14, 2);
+
+    // Details
+    this.drawPixel(bx + 2, by + 14, 2);
+    this.drawPixel(bx + 12, by + 12, 2);
+    this.drawPixel(bx + 12, by + 16, 2);
+
+    // Health bar
+    const healthBarWidth = 30;
+    const healthBarHeight = 4;
+    const healthBarX = bx;
+    const healthBarY = by - 8;
+
+    // Background
+    this.ctx.strokeStyle = '#2d3a1f';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+
+    // Health fill
+    const healthPercent = this.boss.health / this.boss.maxHealth;
+    this.ctx.fillStyle = '#2d3a1f';
+    this.ctx.fillRect(healthBarX + 1, healthBarY + 1, (healthBarWidth - 2) * healthPercent, healthBarHeight - 2);
   }
 
   drawGame() {
@@ -588,10 +814,19 @@ class SpaceImpactCard extends HTMLElement {
     // Draw game elements
     this.drawObstacles();
     this.drawMeteorites();
+    this.drawBoss();
     this.drawPlayer();
     this.drawBullets();
     this.drawEnemies();
     this.drawParticles();
+
+    // Draw boss warning
+    if (this.bossActive && this.boss && this.boss.x > this.canvas.width - 100) {
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = 'bold 16px "Courier New", monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('BOSS INCOMING!', this.canvas.width / 2, 30);
+    }
 
     // Draw border
     this.ctx.strokeStyle = '#2d3a1f';
