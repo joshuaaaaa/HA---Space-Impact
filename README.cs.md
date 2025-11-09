@@ -19,12 +19,12 @@ Retro Nokia Space Impact hra jako Lovelace karta pro Home Assistant.
 
 ### HACS (Doporučeno)
 
-1. Otevřete HACS v Home Assistant
-2. Přejděte na "Frontend"
-3. Klikněte na "+" v pravém dolním rohu
-4. Vyhledejte "Space Impact Card"
-5. Klikněte na "Install"
-6. Restartujte Home Assistant
+1. Otevřete HACS
+2. Klikněte na tři tečky v pravém horním rohu
+3. Vyberte "Custom repositories"
+4. Přidejte URL repozitáře: `https://github.com/joshuaaaaa/HA---Space-Impact`
+5. Kategorie: `Lovelace`
+6. Klikněte "Add"
 
 ### Manuální instalace
 
@@ -38,15 +38,6 @@ lovelace:
       type: module
 ```
 4. Restartujte Home Assistant
-
-### Vlastní repozitář (pokud není v HACS)
-
-1. Otevřete HACS
-2. Klikněte na tři tečky v pravém horním rohu
-3. Vyberte "Custom repositories"
-4. Přidejte URL repozitáře: `https://github.com/joshuaaaaa/HA---Space-Impact`
-5. Kategorie: `Lovelace`
-6. Klikněte "Add"
 
 ## Použití
 
