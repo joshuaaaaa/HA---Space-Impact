@@ -136,7 +136,7 @@ class SpaceImpactCard extends HTMLElement {
         </div>
 
         <div class="controls">
-          ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause
+          ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause | Q Boss Cheat
         </div>
       </div>
     `;
@@ -187,6 +187,15 @@ class SpaceImpactCard extends HTMLElement {
         this.togglePause();
       }
       e.preventDefault();
+      return;
+    }
+
+    // Cheat code: Q to spawn boss
+    if (e.key === 'q' || e.key === 'Q') {
+      if (this.gameStarted && !this.gameOver && !this.paused && !this.bossActive && !this.boss) {
+        this.spawnBoss();
+        e.preventDefault();
+      }
       return;
     }
 
@@ -654,8 +663,12 @@ class SpaceImpactCard extends HTMLElement {
             this.nextBossScore = this.score + 500;
             this.updateLevel();
 
-            // Clear all enemy bullets when boss dies
+            // Clear all objects when boss dies to prevent freezing
             this.enemyBullets = [];
+            this.enemies = [];
+            this.obstacles = [];
+            this.meteorites = [];
+            this.turrets = [];
 
             // Reset spawn timers to prevent mass spawning after boss defeat
             const now = Date.now();
@@ -1157,8 +1170,12 @@ class SpaceImpactCard extends HTMLElement {
 
   gameLoop() {
     const now = Date.now();
-    const deltaTime = now - this.lastTime;
+    let deltaTime = now - this.lastTime;
     this.lastTime = now;
+
+    // Cap deltaTime to prevent issues when tab loses focus
+    // This prevents massive time jumps that can cause freezing
+    deltaTime = Math.min(deltaTime, 100);
 
     this.updateGame(deltaTime);
     this.drawGame();
