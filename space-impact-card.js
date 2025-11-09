@@ -249,9 +249,19 @@ class SpaceImpactCard extends HTMLElement {
       this.lastEnemySpawn += pauseDuration;
       this.lastObstacleSpawn += pauseDuration;
       this.lastMeteoriteSpawn += pauseDuration;
+      this.lastTurretSpawn += pauseDuration;
       if (this.lastShot) {
         this.lastShot += pauseDuration;
       }
+      if (this.boss && this.boss.lastShot) {
+        this.boss.lastShot += pauseDuration;
+      }
+      // Adjust turret shot timers
+      this.turrets.forEach(turret => {
+        if (turret.lastShot) {
+          turret.lastShot += pauseDuration;
+        }
+      });
     }
   }
 
@@ -646,6 +656,13 @@ class SpaceImpactCard extends HTMLElement {
 
             // Clear all enemy bullets when boss dies
             this.enemyBullets = [];
+
+            // Reset spawn timers to prevent mass spawning after boss defeat
+            const now = Date.now();
+            this.lastEnemySpawn = now;
+            this.lastObstacleSpawn = now;
+            this.lastMeteoriteSpawn = now;
+            this.lastTurretSpawn = now;
 
             // Increase difficulty
             if (this.enemySpawnInterval > 600) {
