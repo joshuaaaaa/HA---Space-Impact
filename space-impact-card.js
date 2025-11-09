@@ -7,6 +7,9 @@ class SpaceImpactCard extends HTMLElement {
     this.paused = false;
     this.score = 0;
     this.level = 1;
+    this.lives = 3;
+    this.invincible = false;
+    this.invincibleTime = 0;
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
@@ -112,7 +115,11 @@ class SpaceImpactCard extends HTMLElement {
         <div class="info">
           <div>SCORE: <span id="score">0</span></div>
           <div>SPACE IMPACT</div>
-          <div>LEVEL: <span id="level">1</span></div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span>LEVEL: <span id="level">1</span></span>
+            <span style="margin-left: 8px;">♥</span>
+            <span id="lives">3</span>
+          </div>
         </div>
 
         <div class="screen">
@@ -136,6 +143,7 @@ class SpaceImpactCard extends HTMLElement {
     this.ctx = this.canvas.getContext('2d');
     this.scoreElement = this.shadowRoot.getElementById('score');
     this.levelElement = this.shadowRoot.getElementById('level');
+    this.livesElement = this.shadowRoot.getElementById('lives');
     this.gameOverElement = this.shadowRoot.getElementById('gameOver');
     this.finalScoreElement = this.shadowRoot.getElementById('finalScore');
 
@@ -198,6 +206,9 @@ class SpaceImpactCard extends HTMLElement {
     this.paused = false;
     this.score = 0;
     this.level = 1;
+    this.lives = 3;
+    this.invincible = false;
+    this.invincibleTime = 0;
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
@@ -217,6 +228,7 @@ class SpaceImpactCard extends HTMLElement {
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
     this.updateLevel();
+    this.updateLives();
   }
 
   togglePause() {
@@ -390,6 +402,15 @@ class SpaceImpactCard extends HTMLElement {
   updateGame(deltaTime) {
     if (!this.gameStarted || this.gameOver || this.paused) return;
 
+    // Update invincibility
+    if (this.invincible) {
+      this.invincibleTime -= deltaTime;
+      if (this.invincibleTime <= 0) {
+        this.invincible = false;
+        this.invincibleTime = 0;
+      }
+    }
+
     // Check if boss should spawn
     if (this.score >= this.nextBossScore && !this.bossActive && !this.boss) {
       this.spawnBoss();
@@ -516,29 +537,31 @@ class SpaceImpactCard extends HTMLElement {
     }
 
     // Check collisions - player vs enemies
-    this.enemies.forEach(enemy => {
-      if (this.checkCollision(this.player, enemy)) {
-        this.endGame();
-      }
-    });
+    if (!this.invincible) {
+      this.enemies.forEach(enemy => {
+        if (this.checkCollision(this.player, enemy)) {
+          this.loseLife();
+        }
+      });
 
-    // Check collisions - player vs obstacles
-    this.obstacles.forEach(obstacle => {
-      if (this.checkCollision(this.player, obstacle)) {
-        this.endGame();
-      }
-    });
+      // Check collisions - player vs obstacles
+      this.obstacles.forEach(obstacle => {
+        if (this.checkCollision(this.player, obstacle)) {
+          this.loseLife();
+        }
+      });
 
-    // Check collisions - player vs meteorites
-    this.meteorites.forEach(meteorite => {
-      if (this.checkCollision(this.player, meteorite)) {
-        this.endGame();
-      }
-    });
+      // Check collisions - player vs meteorites
+      this.meteorites.forEach(meteorite => {
+        if (this.checkCollision(this.player, meteorite)) {
+          this.loseLife();
+        }
+      });
 
-    // Check collisions - player vs boss
-    if (this.boss && this.checkCollision(this.player, this.boss)) {
-      this.endGame();
+      // Check collisions - player vs boss
+      if (this.boss && this.checkCollision(this.player, this.boss)) {
+        this.loseLife();
+      }
     }
 
     // Update particles
@@ -570,6 +593,27 @@ class SpaceImpactCard extends HTMLElement {
     }
   }
 
+  loseLife() {
+    if (this.invincible) return;
+
+    this.lives--;
+    this.updateLives();
+
+    // Create explosion at player position
+    this.createExplosion(this.player.x + this.player.width/2, this.player.y + this.player.height/2);
+
+    if (this.lives <= 0) {
+      this.endGame();
+    } else {
+      // Make player invincible for 2 seconds
+      this.invincible = true;
+      this.invincibleTime = 2000;
+
+      // Reset player position
+      this.player.y = this.canvas.height / 2 - this.player.height / 2;
+    }
+  }
+
   endGame() {
     this.gameOver = true;
     this.finalScoreElement.textContent = this.score;
@@ -584,11 +628,20 @@ class SpaceImpactCard extends HTMLElement {
     this.levelElement.textContent = this.level;
   }
 
+  updateLives() {
+    this.livesElement.textContent = this.lives;
+  }
+
   drawPixel(x, y, size = 2) {
     this.ctx.fillRect(Math.floor(x), Math.floor(y), size, size);
   }
 
   drawPlayer() {
+    // Blink when invincible
+    if (this.invincible && Math.floor(Date.now() / 100) % 2 === 0) {
+      return; // Skip drawing every other 100ms
+    }
+
     this.ctx.fillStyle = '#2d3a1f';
 
     // Classic spaceship shape made of pixels
