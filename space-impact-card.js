@@ -279,8 +279,10 @@ class SpaceImpactCard extends HTMLElement {
         y: Math.random() * (this.canvas.height - 20) + 10,
         width: type === 'large' ? 14 : 10,
         height: type === 'large' ? 10 : 6,
-        speed: Math.abs((type === 'large' ? 0.8 : 1.2) * this.gameSpeed), // Fix: Make sure speed is positive
-        health: type === 'large' ? 3 : 1
+        speed: type === 'large' ? 1.2 : 1.5, // Fixed: absolute speed values
+        health: type === 'large' ? 3 : 1,
+        movePattern: 0,
+        moveDirection: Math.random() > 0.5 ? 1 : -1
       };
       this.enemies.push(enemy);
       this.lastEnemySpawn = now;
@@ -443,7 +445,8 @@ class SpaceImpactCard extends HTMLElement {
           y: this.boss.y + this.boss.height / 2 - 1,
           width: 4,
           height: 2,
-          speed: -2.5
+          speedX: -2.5,
+          speedY: 0
         });
         this.boss.lastShot = now;
       }
@@ -483,8 +486,9 @@ class SpaceImpactCard extends HTMLElement {
 
     // Move enemy bullets
     this.enemyBullets = this.enemyBullets.filter(bullet => {
-      bullet.x += bullet.speed;
-      return bullet.x > -10 && bullet.x < this.canvas.width;
+      bullet.x += (bullet.speedX || bullet.speed || -2);
+      bullet.y += (bullet.speedY || 0);
+      return bullet.x > -10 && bullet.x < this.canvas.width && bullet.y > -10 && bullet.y < this.canvas.height + 10;
     });
 
     // Update boss
@@ -497,7 +501,24 @@ class SpaceImpactCard extends HTMLElement {
       this.spawnEnemy();
     }
     this.enemies = this.enemies.filter(enemy => {
-      enemy.x -= enemy.speed;
+      enemy.x -= enemy.speed * this.gameSpeed;
+
+      // Large enemies have vertical movement
+      if (enemy.type === 'large') {
+        enemy.movePattern += 0.03;
+        enemy.y += Math.sin(enemy.movePattern) * 0.8 * enemy.moveDirection;
+
+        // Keep in bounds
+        if (enemy.y < 5) {
+          enemy.y = 5;
+          enemy.moveDirection = 1;
+        }
+        if (enemy.y > this.canvas.height - enemy.height - 5) {
+          enemy.y = this.canvas.height - enemy.height - 5;
+          enemy.moveDirection = -1;
+        }
+      }
+
       return enemy.x > -enemy.width;
     });
 
@@ -527,15 +548,19 @@ class SpaceImpactCard extends HTMLElement {
     this.turrets = this.turrets.filter(turret => {
       turret.x -= turret.speed;
 
-      // Turret shoots
+      // Turret shoots diagonally
       const now = Date.now();
       if (turret.x < this.canvas.width - 50 && (!turret.lastShot || now - turret.lastShot > 2000)) {
+        // Shoot diagonally down/up depending on position
+        const ySpeed = turret.position === 'top' ? 1.5 : -1.5; // Diagonal component
+
         this.enemyBullets.push({
           x: turret.x,
           y: turret.y + turret.height / 2 - 1,
           width: 4,
           height: 2,
-          speed: -2
+          speedX: -2,
+          speedY: ySpeed
         });
         turret.lastShot = now;
       }
