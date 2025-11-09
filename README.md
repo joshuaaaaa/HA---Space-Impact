@@ -23,12 +23,13 @@ Retro Nokia Space Impact game as a Lovelace card for Home Assistant.
 
 ### HACS (Recommended)
 
-1. Open HACS in Home Assistant
-2. Go to "Frontend"
-3. Click "+" in the bottom right corner
-4. Search for "Space Impact Card"
-5. Click "Install"
-6. Restart Home Assistant
+1. Open **HACS** in your Home Assistant
+2. Click on the **three dots** in the top right corner
+3. Select **Custom repositories**
+4. Add this repository URL: `https://github.com/joshuaaaaa/HA---Space-Impact`
+5. Select category: **Dashboard**
+6. Click **Add**
+7. Find **Snake Card** in HACS and click **Download**
 
 ### Manual Installation
 
