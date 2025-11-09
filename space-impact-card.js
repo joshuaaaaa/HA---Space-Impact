@@ -4,6 +4,7 @@ class SpaceImpactCard extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.gameStarted = false;
     this.gameOver = false;
+    this.paused = false;
     this.score = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
@@ -119,7 +120,7 @@ class SpaceImpactCard extends HTMLElement {
         </div>
 
         <div class="controls">
-          ↑↓ Pohyb | MEZERNÍK Střelba | ENTER Start/Restart
+          ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause
         </div>
       </div>
     `;
@@ -163,7 +164,15 @@ class SpaceImpactCard extends HTMLElement {
       return;
     }
 
-    if (!this.gameStarted || this.gameOver) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      if (this.gameStarted && !this.gameOver) {
+        this.togglePause();
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (!this.gameStarted || this.gameOver || this.paused) return;
 
     this.keys[e.key] = true;
 
@@ -180,6 +189,7 @@ class SpaceImpactCard extends HTMLElement {
   startGame() {
     this.gameStarted = true;
     this.gameOver = false;
+    this.paused = false;
     this.score = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
@@ -196,6 +206,22 @@ class SpaceImpactCard extends HTMLElement {
     this.gameSpeed = 1;
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
+  }
+
+  togglePause() {
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.pauseStartTime = Date.now();
+    } else {
+      // Adjust spawn timers to account for pause time
+      const pauseDuration = Date.now() - this.pauseStartTime;
+      this.lastEnemySpawn += pauseDuration;
+      this.lastObstacleSpawn += pauseDuration;
+      this.lastMeteoriteSpawn += pauseDuration;
+      if (this.lastShot) {
+        this.lastShot += pauseDuration;
+      }
+    }
   }
 
   shoot() {
@@ -285,7 +311,7 @@ class SpaceImpactCard extends HTMLElement {
   }
 
   updateGame(deltaTime) {
-    if (!this.gameStarted || this.gameOver) return;
+    if (!this.gameStarted || this.gameOver || this.paused) return;
 
     // Move player
     if (this.keys['ArrowUp'] && this.player.y > 5) {
@@ -571,6 +597,20 @@ class SpaceImpactCard extends HTMLElement {
     this.ctx.strokeStyle = '#2d3a1f';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(1, 1, this.canvas.width - 2, this.canvas.height - 2);
+
+    // Draw pause overlay
+    if (this.paused) {
+      this.ctx.fillStyle = 'rgba(164, 180, 122, 0.8)';
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = 'bold 24px "Courier New", monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2 - 10);
+
+      this.ctx.font = '12px "Courier New", monospace';
+      this.ctx.fillText('Press P or ESC to continue', this.canvas.width / 2, this.canvas.height / 2 + 15);
+    }
   }
 
   gameLoop() {
