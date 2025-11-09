@@ -479,48 +479,21 @@ class SpaceImpactCard extends HTMLElement {
   updateGame(deltaTime) {
     if (!this.gameStarted || this.gameOver || this.paused) return;
 
-    // Handle transition period after boss defeat
-    if (this.transitioning) {
-      this.transitionTime -= deltaTime;
-      if (this.transitionTime <= 0) {
-        this.transitioning = false;
-        this.transitionTime = 0;
-        // Reset spawn timers when transitioning ends
-        const now = Date.now();
-        this.lastEnemySpawn = now;
-        this.lastObstacleSpawn = now;
-        this.lastMeteoriteSpawn = now;
-        this.lastTurretSpawn = now;
-      }
-      // During transition, still update player and bullets but don't spawn anything
-      // Move player
-      if (this.keys['ArrowUp'] && this.player.y > 5) {
-        this.player.y -= 2.5;
-      }
-      if (this.keys['ArrowDown'] && this.player.y < this.canvas.height - this.player.height - 5) {
-        this.player.y += 2.5;
-      }
-      // Move bullets
-      this.bullets = this.bullets.filter(bullet => {
-        bullet.x += bullet.speed;
-        return bullet.x < this.canvas.width && bullet.x > 0;
-      });
-      // Update particles
-      this.particles = this.particles.filter(particle => {
-        particle.life--;
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        return particle.life > 0;
-      });
-      return; // Don't run the rest of updateGame during transition
-    }
-
     // Update invincibility
     if (this.invincible) {
       this.invincibleTime -= deltaTime;
       if (this.invincibleTime <= 0) {
         this.invincible = false;
         this.invincibleTime = 0;
+      }
+    }
+
+    // Update transition timer
+    if (this.transitioning && this.transitionTime > 0) {
+      this.transitionTime -= deltaTime;
+      if (this.transitionTime <= 0) {
+        this.transitioning = false;
+        this.transitionTime = 0;
       }
     }
 
@@ -555,8 +528,8 @@ class SpaceImpactCard extends HTMLElement {
       this.updateBoss();
     }
 
-    // Spawn and move enemies (don't spawn during boss fight)
-    if (!this.bossActive) {
+    // Spawn and move enemies (don't spawn during boss fight or transition)
+    if (!this.bossActive && !this.transitioning) {
       this.spawnEnemy();
     }
     this.enemies = this.enemies.filter(enemy => {
@@ -581,8 +554,8 @@ class SpaceImpactCard extends HTMLElement {
       return enemy.x > -enemy.width;
     });
 
-    // Spawn and move obstacles (don't spawn during boss fight)
-    if (!this.bossActive) {
+    // Spawn and move obstacles (don't spawn during boss fight or transition)
+    if (!this.bossActive && !this.transitioning) {
       this.spawnObstacle();
     }
     this.obstacles = this.obstacles.filter(obstacle => {
@@ -590,8 +563,8 @@ class SpaceImpactCard extends HTMLElement {
       return obstacle.x > -obstacle.width;
     });
 
-    // Spawn and move meteorites (don't spawn during boss fight)
-    if (!this.bossActive) {
+    // Spawn and move meteorites (don't spawn during boss fight or transition)
+    if (!this.bossActive && !this.transitioning) {
       this.spawnMeteorite();
     }
     this.meteorites = this.meteorites.filter(meteorite => {
@@ -600,8 +573,8 @@ class SpaceImpactCard extends HTMLElement {
       return meteorite.x > -meteorite.width;
     });
 
-    // Spawn and move turrets (don't spawn during boss fight)
-    if (!this.bossActive) {
+    // Spawn and move turrets (don't spawn during boss fight or transition)
+    if (!this.bossActive && !this.transitioning) {
       this.spawnTurret();
     }
     this.turrets = this.turrets.filter(turret => {
@@ -710,9 +683,16 @@ class SpaceImpactCard extends HTMLElement {
             this.meteorites = [];
             this.turrets = [];
 
-            // Enter transition mode - pause spawning for 2 seconds
+            // Reset spawn timers immediately
+            const now = Date.now();
+            this.lastEnemySpawn = now;
+            this.lastObstacleSpawn = now;
+            this.lastMeteoriteSpawn = now;
+            this.lastTurretSpawn = now;
+
+            // Enter transition mode - pause spawning for 1.5 seconds
             this.transitioning = true;
-            this.transitionTime = 2000;
+            this.transitionTime = 1500;
 
             // Increase difficulty
             if (this.enemySpawnInterval > 600) {
