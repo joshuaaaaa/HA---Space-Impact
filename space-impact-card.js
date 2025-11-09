@@ -13,8 +13,6 @@ class SpaceImpactCard extends HTMLElement {
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
-    this.transitioning = false;
-    this.transitionTime = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemyBullets = [];
@@ -227,8 +225,6 @@ class SpaceImpactCard extends HTMLElement {
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
-    this.transitioning = false;
-    this.transitionTime = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemyBullets = [];
@@ -488,15 +484,6 @@ class SpaceImpactCard extends HTMLElement {
       }
     }
 
-    // Update transition timer
-    if (this.transitioning && this.transitionTime > 0) {
-      this.transitionTime -= deltaTime;
-      if (this.transitionTime <= 0) {
-        this.transitioning = false;
-        this.transitionTime = 0;
-      }
-    }
-
     // Check if boss should spawn
     if (this.score >= this.nextBossScore && !this.bossActive && !this.boss) {
       this.spawnBoss();
@@ -528,8 +515,8 @@ class SpaceImpactCard extends HTMLElement {
       this.updateBoss();
     }
 
-    // Spawn and move enemies (don't spawn during boss fight or transition)
-    if (!this.bossActive && !this.transitioning) {
+    // Spawn and move enemies (don't spawn during boss fight)
+    if (!this.bossActive) {
       this.spawnEnemy();
     }
     this.enemies = this.enemies.filter(enemy => {
@@ -554,8 +541,8 @@ class SpaceImpactCard extends HTMLElement {
       return enemy.x > -enemy.width;
     });
 
-    // Spawn and move obstacles (don't spawn during boss fight or transition)
-    if (!this.bossActive && !this.transitioning) {
+    // Spawn and move obstacles (don't spawn during boss fight)
+    if (!this.bossActive) {
       this.spawnObstacle();
     }
     this.obstacles = this.obstacles.filter(obstacle => {
@@ -563,8 +550,8 @@ class SpaceImpactCard extends HTMLElement {
       return obstacle.x > -obstacle.width;
     });
 
-    // Spawn and move meteorites (don't spawn during boss fight or transition)
-    if (!this.bossActive && !this.transitioning) {
+    // Spawn and move meteorites (don't spawn during boss fight)
+    if (!this.bossActive) {
       this.spawnMeteorite();
     }
     this.meteorites = this.meteorites.filter(meteorite => {
@@ -573,8 +560,8 @@ class SpaceImpactCard extends HTMLElement {
       return meteorite.x > -meteorite.width;
     });
 
-    // Spawn and move turrets (don't spawn during boss fight or transition)
-    if (!this.bossActive && !this.transitioning) {
+    // Spawn and move turrets (don't spawn during boss fight)
+    if (!this.bossActive) {
       this.spawnTurret();
     }
     this.turrets = this.turrets.filter(turret => {
@@ -671,39 +658,38 @@ class SpaceImpactCard extends HTMLElement {
 
       // Handle boss defeat AFTER processing all bullets (only once)
       if (bossDefeated && this.boss) {
-        // Boss defeated!
+        // Boss defeated! Create multiple explosions
         this.createExplosion(this.boss.x + this.boss.width/2, this.boss.y + this.boss.height/2);
         this.createExplosion(this.boss.x + this.boss.width/3, this.boss.y + this.boss.height/3);
         this.createExplosion(this.boss.x + this.boss.width*2/3, this.boss.y + this.boss.height*2/3);
+        this.createExplosion(this.boss.x + 5, this.boss.y + 5);
+        this.createExplosion(this.boss.x + this.boss.width - 5, this.boss.y + this.boss.height - 5);
 
         this.score += 100 + (this.level * 50);
         this.updateScore();
 
+        // Remove boss and advance level
         this.boss = null;
         this.bossActive = false;
         this.level++;
         this.nextBossScore = this.score + 500;
         this.updateLevel();
 
-        // Clear all objects when boss dies
+        // Clear all enemy objects when boss dies
         this.enemyBullets = [];
         this.enemies = [];
         this.obstacles = [];
         this.meteorites = [];
         this.turrets = [];
 
-        // Reset spawn timers immediately
+        // Reset spawn timers immediately so game continues smoothly
         const now = Date.now();
         this.lastEnemySpawn = now;
         this.lastObstacleSpawn = now;
         this.lastMeteoriteSpawn = now;
         this.lastTurretSpawn = now;
 
-        // Enter transition mode - pause spawning for 1.5 seconds
-        this.transitioning = true;
-        this.transitionTime = 1500;
-
-        // Increase difficulty
+        // Increase difficulty for next level
         if (this.enemySpawnInterval > 600) {
           this.enemySpawnInterval -= 50;
         }
@@ -1163,20 +1149,6 @@ class SpaceImpactCard extends HTMLElement {
     this.drawBullets();
     this.drawEnemies();
     this.drawParticles();
-
-    // Draw transition overlay
-    if (this.transitioning) {
-      this.ctx.fillStyle = 'rgba(164, 180, 122, 0.7)';
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-      this.ctx.fillStyle = '#2d3a1f';
-      this.ctx.font = 'bold 24px "Courier New", monospace';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText('LEVEL ' + this.level, this.canvas.width / 2, this.canvas.height / 2 - 10);
-
-      this.ctx.font = '14px "Courier New", monospace';
-      this.ctx.fillText('Get ready!', this.canvas.width / 2, this.canvas.height / 2 + 20);
-    }
 
     // Draw boss warning
     if (this.bossActive && this.boss && this.boss.x > this.canvas.width - 100) {
