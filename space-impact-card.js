@@ -8,10 +8,16 @@ class SpaceImpactCard extends HTMLElement {
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemies = [];
+    this.obstacles = [];
+    this.meteorites = [];
     this.particles = [];
     this.keys = {};
     this.lastEnemySpawn = 0;
     this.enemySpawnInterval = 2000;
+    this.lastObstacleSpawn = 0;
+    this.obstacleSpawnInterval = 3500;
+    this.lastMeteoriteSpawn = 0;
+    this.meteoriteSpawnInterval = 4000;
     this.gameSpeed = 1;
   }
 
@@ -178,9 +184,15 @@ class SpaceImpactCard extends HTMLElement {
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemies = [];
+    this.obstacles = [];
+    this.meteorites = [];
     this.particles = [];
     this.lastEnemySpawn = Date.now();
     this.enemySpawnInterval = 2000;
+    this.lastObstacleSpawn = Date.now();
+    this.obstacleSpawnInterval = 3500;
+    this.lastMeteoriteSpawn = Date.now();
+    this.meteoriteSpawnInterval = 4000;
     this.gameSpeed = 1;
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
@@ -226,6 +238,52 @@ class SpaceImpactCard extends HTMLElement {
     }
   }
 
+  spawnObstacle() {
+    const now = Date.now();
+    if (now - this.lastObstacleSpawn > this.obstacleSpawnInterval) {
+      // Randomly place obstacle on top or bottom
+      const position = Math.random() > 0.5 ? 'top' : 'bottom';
+      const height = 15 + Math.random() * 15; // Random height 15-30
+
+      const obstacle = {
+        type: 'obstacle',
+        x: this.canvas.width,
+        y: position === 'top' ? 0 : this.canvas.height - height,
+        width: 12,
+        height: height,
+        speed: 1.5 * this.gameSpeed,
+        position: position
+      };
+      this.obstacles.push(obstacle);
+      this.lastObstacleSpawn = now;
+
+      // Vary spawn interval
+      this.obstacleSpawnInterval = 3000 + Math.random() * 2000;
+    }
+  }
+
+  spawnMeteorite() {
+    const now = Date.now();
+    if (now - this.lastMeteoriteSpawn > this.meteoriteSpawnInterval) {
+      // Spawn meteorite at random vertical position in middle area
+      const meteorite = {
+        type: 'meteorite',
+        x: this.canvas.width,
+        y: 30 + Math.random() * (this.canvas.height - 60),
+        width: 10,
+        height: 10,
+        speed: 1.8 * this.gameSpeed,
+        rotation: 0,
+        rotationSpeed: 0.1
+      };
+      this.meteorites.push(meteorite);
+      this.lastMeteoriteSpawn = now;
+
+      // Vary spawn interval
+      this.meteoriteSpawnInterval = 3500 + Math.random() * 2500;
+    }
+  }
+
   updateGame(deltaTime) {
     if (!this.gameStarted || this.gameOver) return;
 
@@ -250,6 +308,21 @@ class SpaceImpactCard extends HTMLElement {
       return enemy.x > -enemy.width;
     });
 
+    // Spawn and move obstacles
+    this.spawnObstacle();
+    this.obstacles = this.obstacles.filter(obstacle => {
+      obstacle.x -= obstacle.speed;
+      return obstacle.x > -obstacle.width;
+    });
+
+    // Spawn and move meteorites
+    this.spawnMeteorite();
+    this.meteorites = this.meteorites.filter(meteorite => {
+      meteorite.x -= meteorite.speed;
+      meteorite.rotation += meteorite.rotationSpeed;
+      return meteorite.x > -meteorite.width;
+    });
+
     // Check collisions - bullets vs enemies
     this.bullets.forEach((bullet, bulletIndex) => {
       this.enemies.forEach((enemy, enemyIndex) => {
@@ -269,9 +342,36 @@ class SpaceImpactCard extends HTMLElement {
       });
     });
 
+    // Check collisions - bullets vs meteorites
+    this.bullets.forEach((bullet, bulletIndex) => {
+      this.meteorites.forEach((meteorite, meteoriteIndex) => {
+        if (this.checkCollision(bullet, meteorite)) {
+          this.bullets.splice(bulletIndex, 1);
+          this.meteorites.splice(meteoriteIndex, 1);
+          this.createExplosion(meteorite.x + meteorite.width/2, meteorite.y + meteorite.height/2);
+          this.score += 15;
+          this.updateScore();
+        }
+      });
+    });
+
     // Check collisions - player vs enemies
     this.enemies.forEach(enemy => {
       if (this.checkCollision(this.player, enemy)) {
+        this.endGame();
+      }
+    });
+
+    // Check collisions - player vs obstacles
+    this.obstacles.forEach(obstacle => {
+      if (this.checkCollision(this.player, obstacle)) {
+        this.endGame();
+      }
+    });
+
+    // Check collisions - player vs meteorites
+    this.meteorites.forEach(meteorite => {
+      if (this.checkCollision(this.player, meteorite)) {
         this.endGame();
       }
     });
@@ -390,6 +490,59 @@ class SpaceImpactCard extends HTMLElement {
     });
   }
 
+  drawObstacles() {
+    this.ctx.fillStyle = '#2d3a1f';
+    this.obstacles.forEach(obstacle => {
+      const ox = Math.floor(obstacle.x);
+      const oy = Math.floor(obstacle.y);
+
+      // Draw building/wall-like structure
+      for (let i = 0; i < obstacle.height; i += 3) {
+        // Vertical lines
+        this.drawPixel(ox, oy + i, 2);
+        this.drawPixel(ox + 10, oy + i, 2);
+
+        // Horizontal details every 6 pixels
+        if (i % 6 === 0) {
+          for (let j = 2; j < 10; j += 2) {
+            this.drawPixel(ox + j, oy + i, 2);
+          }
+        }
+      }
+
+      // Side edges
+      for (let i = 0; i < obstacle.height; i += 2) {
+        this.drawPixel(ox + 2, oy + i, 2);
+        this.drawPixel(ox + 8, oy + i, 2);
+      }
+    });
+  }
+
+  drawMeteorites() {
+    this.ctx.fillStyle = '#2d3a1f';
+    this.meteorites.forEach(meteorite => {
+      const mx = Math.floor(meteorite.x);
+      const my = Math.floor(meteorite.y);
+
+      // Draw irregular rock shape
+      // Center mass
+      this.drawPixel(mx + 3, my + 3, 2);
+      this.drawPixel(mx + 5, my + 3, 2);
+      this.drawPixel(mx + 3, my + 5, 2);
+      this.drawPixel(mx + 5, my + 5, 2);
+
+      // Irregular edges
+      this.drawPixel(mx + 1, my + 4, 2);
+      this.drawPixel(mx + 7, my + 4, 2);
+      this.drawPixel(mx + 4, my + 1, 2);
+      this.drawPixel(mx + 4, my + 7, 2);
+
+      // Corner pieces for irregular shape
+      this.drawPixel(mx + 2, my + 2, 2);
+      this.drawPixel(mx + 6, my + 6, 2);
+    });
+  }
+
   drawGame() {
     // Clear canvas with Nokia greenish background
     this.ctx.fillStyle = '#a4b47a';
@@ -407,6 +560,8 @@ class SpaceImpactCard extends HTMLElement {
     }
 
     // Draw game elements
+    this.drawObstacles();
+    this.drawMeteorites();
     this.drawPlayer();
     this.drawBullets();
     this.drawEnemies();
