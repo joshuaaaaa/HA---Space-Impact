@@ -569,17 +569,20 @@ class SpaceImpactCard extends HTMLElement {
     });
 
     // Check collisions - bullets vs enemies
+    const bulletsToRemove = new Set();
+    const enemiesToRemove = new Set();
+
     this.bullets.forEach((bullet, bulletIndex) => {
       this.enemies.forEach((enemy, enemyIndex) => {
-        if (this.checkCollision(bullet, enemy)) {
-          this.bullets.splice(bulletIndex, 1);
+        if (!bulletsToRemove.has(bulletIndex) && !enemiesToRemove.has(enemyIndex) && this.checkCollision(bullet, enemy)) {
+          bulletsToRemove.add(bulletIndex);
           enemy.health--;
 
           // Create explosion particles
           this.createExplosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
 
           if (enemy.health <= 0) {
-            this.enemies.splice(enemyIndex, 1);
+            enemiesToRemove.add(enemyIndex);
             this.score += enemy.type === 'large' ? 20 : 10;
             this.updateScore();
           }
@@ -587,18 +590,24 @@ class SpaceImpactCard extends HTMLElement {
       });
     });
 
+    // Remove marked bullets and enemies
+    this.bullets = this.bullets.filter((_, index) => !bulletsToRemove.has(index));
+    this.enemies = this.enemies.filter((_, index) => !enemiesToRemove.has(index));
+
     // Check collisions - bullets vs meteorites
+    const meteoritesToRemove = new Set();
+
     this.bullets.forEach((bullet, bulletIndex) => {
       this.meteorites.forEach((meteorite, meteoriteIndex) => {
-        if (this.checkCollision(bullet, meteorite)) {
-          this.bullets.splice(bulletIndex, 1);
+        if (!bulletsToRemove.has(bulletIndex) && !meteoritesToRemove.has(meteoriteIndex) && this.checkCollision(bullet, meteorite)) {
+          bulletsToRemove.add(bulletIndex);
           meteorite.health--;
 
           // Create explosion particles
           this.createExplosion(meteorite.x + meteorite.width/2, meteorite.y + meteorite.height/2);
 
           if (meteorite.health <= 0) {
-            this.meteorites.splice(meteoriteIndex, 1);
+            meteoritesToRemove.add(meteoriteIndex);
             this.score += meteorite.points;
             this.updateScore();
           }
@@ -606,11 +615,15 @@ class SpaceImpactCard extends HTMLElement {
       });
     });
 
+    // Remove marked bullets and meteorites
+    this.bullets = this.bullets.filter((_, index) => !bulletsToRemove.has(index));
+    this.meteorites = this.meteorites.filter((_, index) => !meteoritesToRemove.has(index));
+
     // Check collisions - bullets vs boss
     if (this.boss) {
       this.bullets.forEach((bullet, bulletIndex) => {
-        if (this.checkCollision(bullet, this.boss)) {
-          this.bullets.splice(bulletIndex, 1);
+        if (!bulletsToRemove.has(bulletIndex) && this.checkCollision(bullet, this.boss)) {
+          bulletsToRemove.add(bulletIndex);
           this.boss.health--;
 
           // Create explosion particles
@@ -631,6 +644,9 @@ class SpaceImpactCard extends HTMLElement {
             this.nextBossScore = this.score + 500;
             this.updateLevel();
 
+            // Clear all enemy bullets when boss dies
+            this.enemyBullets = [];
+
             // Increase difficulty
             if (this.enemySpawnInterval > 600) {
               this.enemySpawnInterval -= 50;
@@ -639,26 +655,35 @@ class SpaceImpactCard extends HTMLElement {
           }
         }
       });
+
+      // Remove marked bullets
+      this.bullets = this.bullets.filter((_, index) => !bulletsToRemove.has(index));
     }
 
     // Check collisions - bullets vs turrets
+    const turretsToRemove = new Set();
+
     this.bullets.forEach((bullet, bulletIndex) => {
       this.turrets.forEach((turret, turretIndex) => {
-        if (this.checkCollision(bullet, turret)) {
-          this.bullets.splice(bulletIndex, 1);
+        if (!bulletsToRemove.has(bulletIndex) && !turretsToRemove.has(turretIndex) && this.checkCollision(bullet, turret)) {
+          bulletsToRemove.add(bulletIndex);
           turret.health--;
 
           // Create explosion particles
           this.createExplosion(turret.x + turret.width/2, turret.y + turret.height/2);
 
           if (turret.health <= 0) {
-            this.turrets.splice(turretIndex, 1);
+            turretsToRemove.add(turretIndex);
             this.score += 30;
             this.updateScore();
           }
         }
       });
     });
+
+    // Remove marked bullets and turrets
+    this.bullets = this.bullets.filter((_, index) => !bulletsToRemove.has(index));
+    this.turrets = this.turrets.filter((_, index) => !turretsToRemove.has(index));
 
     // Check collisions - player vs enemies
     if (!this.invincible) {
@@ -695,12 +720,18 @@ class SpaceImpactCard extends HTMLElement {
       }
 
       // Check collisions - player vs enemy bullets
+      const enemyBulletsToRemove = [];
       this.enemyBullets.forEach((bullet, bulletIndex) => {
         if (this.checkCollision(this.player, bullet)) {
-          this.enemyBullets.splice(bulletIndex, 1);
+          enemyBulletsToRemove.push(bulletIndex);
           this.loseLife();
         }
       });
+
+      // Remove marked enemy bullets (iterate backwards to avoid index issues)
+      for (let i = enemyBulletsToRemove.length - 1; i >= 0; i--) {
+        this.enemyBullets.splice(enemyBulletsToRemove[i], 1);
+      }
     }
 
     // Update particles
