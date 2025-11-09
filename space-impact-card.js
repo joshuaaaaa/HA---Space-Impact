@@ -13,6 +13,8 @@ class SpaceImpactCard extends HTMLElement {
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
+    this.transitioning = false;
+    this.transitionTime = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemyBullets = [];
@@ -136,7 +138,7 @@ class SpaceImpactCard extends HTMLElement {
         </div>
 
         <div class="controls">
-          ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause | Q Boss Cheat
+          ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause
         </div>
       </div>
     `;
@@ -225,6 +227,8 @@ class SpaceImpactCard extends HTMLElement {
     this.bossActive = false;
     this.boss = null;
     this.nextBossScore = 500;
+    this.transitioning = false;
+    this.transitionTime = 0;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
     this.enemyBullets = [];
@@ -475,6 +479,42 @@ class SpaceImpactCard extends HTMLElement {
   updateGame(deltaTime) {
     if (!this.gameStarted || this.gameOver || this.paused) return;
 
+    // Handle transition period after boss defeat
+    if (this.transitioning) {
+      this.transitionTime -= deltaTime;
+      if (this.transitionTime <= 0) {
+        this.transitioning = false;
+        this.transitionTime = 0;
+        // Reset spawn timers when transitioning ends
+        const now = Date.now();
+        this.lastEnemySpawn = now;
+        this.lastObstacleSpawn = now;
+        this.lastMeteoriteSpawn = now;
+        this.lastTurretSpawn = now;
+      }
+      // During transition, still update player and bullets but don't spawn anything
+      // Move player
+      if (this.keys['ArrowUp'] && this.player.y > 5) {
+        this.player.y -= 2.5;
+      }
+      if (this.keys['ArrowDown'] && this.player.y < this.canvas.height - this.player.height - 5) {
+        this.player.y += 2.5;
+      }
+      // Move bullets
+      this.bullets = this.bullets.filter(bullet => {
+        bullet.x += bullet.speed;
+        return bullet.x < this.canvas.width && bullet.x > 0;
+      });
+      // Update particles
+      this.particles = this.particles.filter(particle => {
+        particle.life--;
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        return particle.life > 0;
+      });
+      return; // Don't run the rest of updateGame during transition
+    }
+
     // Update invincibility
     if (this.invincible) {
       this.invincibleTime -= deltaTime;
@@ -663,19 +703,16 @@ class SpaceImpactCard extends HTMLElement {
             this.nextBossScore = this.score + 500;
             this.updateLevel();
 
-            // Clear all objects when boss dies to prevent freezing
+            // Clear all objects when boss dies
             this.enemyBullets = [];
             this.enemies = [];
             this.obstacles = [];
             this.meteorites = [];
             this.turrets = [];
 
-            // Reset spawn timers to prevent mass spawning after boss defeat
-            const now = Date.now();
-            this.lastEnemySpawn = now;
-            this.lastObstacleSpawn = now;
-            this.lastMeteoriteSpawn = now;
-            this.lastTurretSpawn = now;
+            // Enter transition mode - pause spawning for 2 seconds
+            this.transitioning = true;
+            this.transitionTime = 2000;
 
             // Increase difficulty
             if (this.enemySpawnInterval > 600) {
@@ -1139,6 +1176,20 @@ class SpaceImpactCard extends HTMLElement {
     this.drawBullets();
     this.drawEnemies();
     this.drawParticles();
+
+    // Draw transition overlay
+    if (this.transitioning) {
+      this.ctx.fillStyle = 'rgba(164, 180, 122, 0.7)';
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = 'bold 24px "Courier New", monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('LEVEL ' + this.level, this.canvas.width / 2, this.canvas.height / 2 - 10);
+
+      this.ctx.font = '14px "Courier New", monospace';
+      this.ctx.fillText('Get ready!', this.canvas.width / 2, this.canvas.height / 2 + 20);
+    }
 
     // Draw boss warning
     if (this.bossActive && this.boss && this.boss.x > this.canvas.width - 100) {
