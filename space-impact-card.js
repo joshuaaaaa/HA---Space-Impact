@@ -652,56 +652,63 @@ class SpaceImpactCard extends HTMLElement {
     this.meteorites = this.meteorites.filter((_, index) => !meteoritesToRemove.has(index));
 
     // Check collisions - bullets vs boss
+    let bossDefeated = false;
     if (this.boss) {
       this.bullets.forEach((bullet, bulletIndex) => {
-        if (!bulletsToRemove.has(bulletIndex) && this.checkCollision(bullet, this.boss)) {
+        if (!bulletsToRemove.has(bulletIndex) && this.boss && this.checkCollision(bullet, this.boss)) {
           bulletsToRemove.add(bulletIndex);
           this.boss.health--;
 
           // Create explosion particles
           this.createExplosion(bullet.x, bullet.y);
 
+          // Mark boss as defeated (will handle after loop)
           if (this.boss.health <= 0) {
-            // Boss defeated!
-            this.createExplosion(this.boss.x + this.boss.width/2, this.boss.y + this.boss.height/2);
-            this.createExplosion(this.boss.x + this.boss.width/3, this.boss.y + this.boss.height/3);
-            this.createExplosion(this.boss.x + this.boss.width*2/3, this.boss.y + this.boss.height*2/3);
-
-            this.score += 100 + (this.level * 50);
-            this.updateScore();
-
-            this.boss = null;
-            this.bossActive = false;
-            this.level++;
-            this.nextBossScore = this.score + 500;
-            this.updateLevel();
-
-            // Clear all objects when boss dies
-            this.enemyBullets = [];
-            this.enemies = [];
-            this.obstacles = [];
-            this.meteorites = [];
-            this.turrets = [];
-
-            // Reset spawn timers immediately
-            const now = Date.now();
-            this.lastEnemySpawn = now;
-            this.lastObstacleSpawn = now;
-            this.lastMeteoriteSpawn = now;
-            this.lastTurretSpawn = now;
-
-            // Enter transition mode - pause spawning for 1.5 seconds
-            this.transitioning = true;
-            this.transitionTime = 1500;
-
-            // Increase difficulty
-            if (this.enemySpawnInterval > 600) {
-              this.enemySpawnInterval -= 50;
-            }
-            this.gameSpeed += 0.15;
+            bossDefeated = true;
           }
         }
       });
+
+      // Handle boss defeat AFTER processing all bullets (only once)
+      if (bossDefeated && this.boss) {
+        // Boss defeated!
+        this.createExplosion(this.boss.x + this.boss.width/2, this.boss.y + this.boss.height/2);
+        this.createExplosion(this.boss.x + this.boss.width/3, this.boss.y + this.boss.height/3);
+        this.createExplosion(this.boss.x + this.boss.width*2/3, this.boss.y + this.boss.height*2/3);
+
+        this.score += 100 + (this.level * 50);
+        this.updateScore();
+
+        this.boss = null;
+        this.bossActive = false;
+        this.level++;
+        this.nextBossScore = this.score + 500;
+        this.updateLevel();
+
+        // Clear all objects when boss dies
+        this.enemyBullets = [];
+        this.enemies = [];
+        this.obstacles = [];
+        this.meteorites = [];
+        this.turrets = [];
+
+        // Reset spawn timers immediately
+        const now = Date.now();
+        this.lastEnemySpawn = now;
+        this.lastObstacleSpawn = now;
+        this.lastMeteoriteSpawn = now;
+        this.lastTurretSpawn = now;
+
+        // Enter transition mode - pause spawning for 1.5 seconds
+        this.transitioning = true;
+        this.transitionTime = 1500;
+
+        // Increase difficulty
+        if (this.enemySpawnInterval > 600) {
+          this.enemySpawnInterval -= 50;
+        }
+        this.gameSpeed += 0.15;
+      }
 
       // Remove marked bullets
       this.bullets = this.bullets.filter((_, index) => !bulletsToRemove.has(index));
