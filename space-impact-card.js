@@ -15,9 +15,11 @@ class SpaceImpactCard extends HTMLElement {
     this.nextBossScore = 500;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
+    this.enemyBullets = [];
     this.enemies = [];
     this.obstacles = [];
     this.meteorites = [];
+    this.turrets = [];
     this.particles = [];
     this.keys = {};
     this.lastEnemySpawn = 0;
@@ -26,6 +28,8 @@ class SpaceImpactCard extends HTMLElement {
     this.obstacleSpawnInterval = 3500;
     this.lastMeteoriteSpawn = 0;
     this.meteoriteSpawnInterval = 4000;
+    this.lastTurretSpawn = 0;
+    this.turretSpawnInterval = 6000;
     this.gameSpeed = 1;
   }
 
@@ -214,9 +218,11 @@ class SpaceImpactCard extends HTMLElement {
     this.nextBossScore = 500;
     this.player = { x: 30, y: 50, width: 12, height: 6 };
     this.bullets = [];
+    this.enemyBullets = [];
     this.enemies = [];
     this.obstacles = [];
     this.meteorites = [];
+    this.turrets = [];
     this.particles = [];
     this.lastEnemySpawn = Date.now();
     this.enemySpawnInterval = 2000;
@@ -224,6 +230,8 @@ class SpaceImpactCard extends HTMLElement {
     this.obstacleSpawnInterval = 3500;
     this.lastMeteoriteSpawn = Date.now();
     this.meteoriteSpawnInterval = 4000;
+    this.lastTurretSpawn = Date.now();
+    this.turretSpawnInterval = 6000;
     this.gameSpeed = 1;
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
@@ -271,7 +279,7 @@ class SpaceImpactCard extends HTMLElement {
         y: Math.random() * (this.canvas.height - 20) + 10,
         width: type === 'large' ? 14 : 10,
         height: type === 'large' ? 10 : 6,
-        speed: (type === 'large' ? 0.8 : 1.2) * this.gameSpeed,
+        speed: Math.abs((type === 'large' ? 0.8 : 1.2) * this.gameSpeed), // Fix: Make sure speed is positive
         health: type === 'large' ? 3 : 1
       };
       this.enemies.push(enemy);
@@ -314,37 +322,42 @@ class SpaceImpactCard extends HTMLElement {
   spawnMeteorite() {
     const now = Date.now();
     if (now - this.lastMeteoriteSpawn > this.meteoriteSpawnInterval) {
-      // Determine meteorite size (small, medium, large)
+      // Determine meteorite size (small, medium, large, giant)
       const rand = Math.random();
       let size, points, health;
 
-      if (rand < 0.6) {
-        // Small meteorite - 60% chance
+      if (rand < 0.5) {
+        // Small meteorite - 50% chance
         size = 'small';
         points = 15;
         health = 1;
-      } else if (rand < 0.9) {
+      } else if (rand < 0.8) {
         // Medium meteorite - 30% chance
         size = 'medium';
         points = 25;
         health = 2;
-      } else {
-        // Large meteorite - 10% chance
+      } else if (rand < 0.95) {
+        // Large meteorite - 15% chance
         size = 'large';
         points = 40;
         health = 3;
+      } else {
+        // Giant meteorite - 5% chance (2x larger!)
+        size = 'giant';
+        points = 60;
+        health = 5;
       }
 
-      const sizeMap = { small: 10, medium: 14, large: 18 };
+      const sizeMap = { small: 10, medium: 14, large: 18, giant: 28 };
 
       const meteorite = {
         type: 'meteorite',
         size: size,
         x: this.canvas.width,
-        y: 30 + Math.random() * (this.canvas.height - 60),
+        y: 30 + Math.random() * (this.canvas.height - 60 - sizeMap[size]),
         width: sizeMap[size],
         height: sizeMap[size],
-        speed: (size === 'large' ? 1.3 : size === 'medium' ? 1.5 : 1.8) * this.gameSpeed,
+        speed: Math.abs((size === 'giant' ? 1.0 : size === 'large' ? 1.3 : size === 'medium' ? 1.5 : 1.8) * this.gameSpeed),
         rotation: 0,
         rotationSpeed: 0.1,
         health: health,
@@ -356,6 +369,30 @@ class SpaceImpactCard extends HTMLElement {
 
       // Vary spawn interval
       this.meteoriteSpawnInterval = 3500 + Math.random() * 2500;
+    }
+  }
+
+  spawnTurret() {
+    const now = Date.now();
+    if (now - this.lastTurretSpawn > this.turretSpawnInterval) {
+      const position = Math.random() > 0.5 ? 'top' : 'bottom';
+
+      const turret = {
+        type: 'turret',
+        x: this.canvas.width,
+        y: position === 'top' ? 5 : this.canvas.height - 18,
+        width: 16,
+        height: 14,
+        speed: Math.abs(1.2 * this.gameSpeed),
+        position: position,
+        health: 2,
+        lastShot: 0
+      };
+      this.turrets.push(turret);
+      this.lastTurretSpawn = now;
+
+      // Vary spawn interval
+      this.turretSpawnInterval = 5000 + Math.random() * 3000;
     }
   }
 
@@ -376,7 +413,8 @@ class SpaceImpactCard extends HTMLElement {
       maxHealth: bossHealth,
       movePattern: 0,
       moveSpeed: 1,
-      moveDirection: 1
+      moveDirection: 1,
+      lastShot: 0
     };
   }
 
@@ -395,6 +433,19 @@ class SpaceImpactCard extends HTMLElement {
       if (this.boss.y < 10) this.boss.y = 10;
       if (this.boss.y > this.canvas.height - this.boss.height - 10) {
         this.boss.y = this.canvas.height - this.boss.height - 10;
+      }
+
+      // Boss shoots
+      const now = Date.now();
+      if (!this.boss.lastShot || now - this.boss.lastShot > 1500) {
+        this.enemyBullets.push({
+          x: this.boss.x,
+          y: this.boss.y + this.boss.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: -2.5
+        });
+        this.boss.lastShot = now;
       }
     }
   }
@@ -427,7 +478,13 @@ class SpaceImpactCard extends HTMLElement {
     // Move bullets
     this.bullets = this.bullets.filter(bullet => {
       bullet.x += bullet.speed;
-      return bullet.x < this.canvas.width;
+      return bullet.x < this.canvas.width && bullet.x > 0;
+    });
+
+    // Move enemy bullets
+    this.enemyBullets = this.enemyBullets.filter(bullet => {
+      bullet.x += bullet.speed;
+      return bullet.x > -10 && bullet.x < this.canvas.width;
     });
 
     // Update boss
@@ -461,6 +518,29 @@ class SpaceImpactCard extends HTMLElement {
       meteorite.x -= meteorite.speed;
       meteorite.rotation += meteorite.rotationSpeed;
       return meteorite.x > -meteorite.width;
+    });
+
+    // Spawn and move turrets (don't spawn during boss fight)
+    if (!this.bossActive) {
+      this.spawnTurret();
+    }
+    this.turrets = this.turrets.filter(turret => {
+      turret.x -= turret.speed;
+
+      // Turret shoots
+      const now = Date.now();
+      if (turret.x < this.canvas.width - 50 && (!turret.lastShot || now - turret.lastShot > 2000)) {
+        this.enemyBullets.push({
+          x: turret.x,
+          y: turret.y + turret.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: -2
+        });
+        turret.lastShot = now;
+      }
+
+      return turret.x > -turret.width;
     });
 
     // Check collisions - bullets vs enemies
@@ -536,6 +616,25 @@ class SpaceImpactCard extends HTMLElement {
       });
     }
 
+    // Check collisions - bullets vs turrets
+    this.bullets.forEach((bullet, bulletIndex) => {
+      this.turrets.forEach((turret, turretIndex) => {
+        if (this.checkCollision(bullet, turret)) {
+          this.bullets.splice(bulletIndex, 1);
+          turret.health--;
+
+          // Create explosion particles
+          this.createExplosion(turret.x + turret.width/2, turret.y + turret.height/2);
+
+          if (turret.health <= 0) {
+            this.turrets.splice(turretIndex, 1);
+            this.score += 30;
+            this.updateScore();
+          }
+        }
+      });
+    });
+
     // Check collisions - player vs enemies
     if (!this.invincible) {
       this.enemies.forEach(enemy => {
@@ -558,10 +657,25 @@ class SpaceImpactCard extends HTMLElement {
         }
       });
 
+      // Check collisions - player vs turrets
+      this.turrets.forEach(turret => {
+        if (this.checkCollision(this.player, turret)) {
+          this.loseLife();
+        }
+      });
+
       // Check collisions - player vs boss
       if (this.boss && this.checkCollision(this.player, this.boss)) {
         this.loseLife();
       }
+
+      // Check collisions - player vs enemy bullets
+      this.enemyBullets.forEach((bullet, bulletIndex) => {
+        if (this.checkCollision(this.player, bullet)) {
+          this.enemyBullets.splice(bulletIndex, 1);
+          this.loseLife();
+        }
+      });
     }
 
     // Update particles
@@ -670,6 +784,12 @@ class SpaceImpactCard extends HTMLElement {
       this.drawPixel(bullet.x, bullet.y, 2);
       this.drawPixel(bullet.x + 2, bullet.y, 2);
     });
+
+    // Draw enemy bullets (different style)
+    this.enemyBullets.forEach(bullet => {
+      this.drawPixel(bullet.x, bullet.y, 2);
+      this.drawPixel(bullet.x - 2, bullet.y, 2);
+    });
   }
 
   drawEnemies() {
@@ -776,7 +896,7 @@ class SpaceImpactCard extends HTMLElement {
         this.drawPixel(mx + 5, my + 10, 2);
         this.drawPixel(mx + 3, my + 3, 2);
         this.drawPixel(mx + 9, my + 9, 2);
-      } else {
+      } else if (size === 'large') {
         // Large meteorite (18px)
         for (let i = 0; i < 3; i++) {
           for (let j = 0; j < 3; j++) {
@@ -793,6 +913,66 @@ class SpaceImpactCard extends HTMLElement {
         this.drawPixel(mx + 12, my + 4, 2);
         this.drawPixel(mx + 2, my + 8, 2);
         this.drawPixel(mx + 14, my + 8, 2);
+      } else if (size === 'giant') {
+        // Giant meteorite (28px) - MASSIVE!
+        // Dense core
+        for (let i = 0; i < 5; i++) {
+          for (let j = 0; j < 5; j++) {
+            this.drawPixel(mx + 10 + i * 2, my + 10 + j * 2, 2);
+          }
+        }
+        // Outer ring
+        for (let i = 0; i < 7; i++) {
+          this.drawPixel(mx + 8 + i * 2, my + 6, 2);
+          this.drawPixel(mx + 8 + i * 2, my + 20, 2);
+        }
+        for (let i = 0; i < 5; i++) {
+          this.drawPixel(mx + 6, my + 8 + i * 2, 2);
+          this.drawPixel(mx + 22, my + 8 + i * 2, 2);
+        }
+        // Corner details
+        this.drawPixel(mx + 4, my + 10, 2);
+        this.drawPixel(mx + 24, my + 10, 2);
+        this.drawPixel(mx + 10, my + 4, 2);
+        this.drawPixel(mx + 10, my + 24, 2);
+        this.drawPixel(mx + 6, my + 6, 2);
+        this.drawPixel(mx + 22, my + 22, 2);
+        this.drawPixel(mx + 6, my + 22, 2);
+        this.drawPixel(mx + 22, my + 6, 2);
+      }
+    });
+  }
+
+  drawTurrets() {
+    this.ctx.fillStyle = '#2d3a1f';
+    this.turrets.forEach(turret => {
+      const tx = Math.floor(turret.x);
+      const ty = Math.floor(turret.y);
+
+      // Base
+      for (let i = 0; i < 8; i += 2) {
+        this.drawPixel(tx + i, ty + 6, 2);
+      }
+      for (let i = 0; i < 6; i += 2) {
+        this.drawPixel(tx + 2 + i, ty + 8, 2);
+      }
+
+      // Turret head (gun barrel)
+      this.drawPixel(tx, ty + 6, 2);
+      this.drawPixel(tx + 2, ty + 4, 2);
+      this.drawPixel(tx + 4, ty + 4, 2);
+
+      // Support
+      this.drawPixel(tx + 6, ty + 4, 2);
+      this.drawPixel(tx + 8, ty + 6, 2);
+
+      // Wall mounting
+      if (turret.position === 'top') {
+        this.drawPixel(tx + 4, ty, 2);
+        this.drawPixel(tx + 4, ty + 2, 2);
+      } else {
+        this.drawPixel(tx + 4, ty + 10, 2);
+        this.drawPixel(tx + 4, ty + 12, 2);
       }
     });
   }
@@ -866,6 +1046,7 @@ class SpaceImpactCard extends HTMLElement {
 
     // Draw game elements
     this.drawObstacles();
+    this.drawTurrets();
     this.drawMeteorites();
     this.drawBoss();
     this.drawPlayer();
