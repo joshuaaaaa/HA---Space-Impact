@@ -7,7 +7,8 @@
 
 Retro Nokia Space Impact game as a Lovelace card for Home Assistant.
 
-<img width="512" height="344" alt="Space Impact Card Screenshot" src="https://github.com/user-attachments/assets/a11ff5dd-e11d-433c-9b4a-8db239eb1012" />
+<img width="512" height="336" alt="image" src="https://github.com/user-attachments/assets/03485aff-cccc-436e-9d69-4204815b60de" />
+
 
 ## Features
 
