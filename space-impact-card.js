@@ -21,6 +21,7 @@ class SpaceImpactCard extends HTMLElement {
     this.meteorites = [];
     this.turrets = [];
     this.particles = [];
+    this.powerups = [];
     this.keys = {};
     this.lastEnemySpawn = 0;
     this.enemySpawnInterval = 2000;
@@ -31,6 +32,20 @@ class SpaceImpactCard extends HTMLElement {
     this.lastTurretSpawn = 0;
     this.turretSpawnInterval = 6000;
     this.gameSpeed = 1;
+
+    // Power-up system
+    this.tripleShot = false;
+    this.tripleShotTime = 0;
+    this.rapidFire = false;
+    this.rapidFireTime = 0;
+    this.shield = false;
+
+    // Screen shake
+    this.screenShake = 0;
+    this.shakeIntensity = 0;
+
+    // High score
+    this.highScore = this.loadHighScore();
   }
 
   setConfig(config) {
@@ -117,10 +132,10 @@ class SpaceImpactCard extends HTMLElement {
 
       <div class="game-container">
         <div class="info">
-          <div>SCORE: <span id="score">0</span></div>
+          <div>SCORE: <span id="score">0</span><br><span style="font-size: 10px;">HI: <span id="highScore">0</span></span></div>
           <div>SPACE IMPACT</div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <span>LEVEL: <span id="level">1</span></span>
+            <span>LVL: <span id="level">1</span></span>
             <span style="margin-left: 8px;">♥</span>
             <span id="lives">3</span>
           </div>
@@ -148,6 +163,7 @@ class SpaceImpactCard extends HTMLElement {
     this.scoreElement = this.shadowRoot.getElementById('score');
     this.levelElement = this.shadowRoot.getElementById('level');
     this.livesElement = this.shadowRoot.getElementById('lives');
+    this.highScoreElement = this.shadowRoot.getElementById('highScore');
     this.gameOverElement = this.shadowRoot.getElementById('gameOver');
     this.finalScoreElement = this.shadowRoot.getElementById('finalScore');
 
@@ -162,6 +178,7 @@ class SpaceImpactCard extends HTMLElement {
 
     // Start game loop
     this.lastTime = Date.now();
+    this.updateHighScore();
     this.gameLoop();
   }
 
@@ -233,6 +250,7 @@ class SpaceImpactCard extends HTMLElement {
     this.meteorites = [];
     this.turrets = [];
     this.particles = [];
+    this.powerups = [];
     this.lastEnemySpawn = Date.now();
     this.enemySpawnInterval = 2000;
     this.lastObstacleSpawn = Date.now();
@@ -242,6 +260,18 @@ class SpaceImpactCard extends HTMLElement {
     this.lastTurretSpawn = Date.now();
     this.turretSpawnInterval = 6000;
     this.gameSpeed = 1;
+
+    // Reset power-ups
+    this.tripleShot = false;
+    this.tripleShotTime = 0;
+    this.rapidFire = false;
+    this.rapidFireTime = 0;
+    this.shield = false;
+
+    // Reset screen shake
+    this.screenShake = 0;
+    this.shakeIntensity = 0;
+
     this.gameOverElement.classList.add('game-over-hidden');
     this.updateScore();
     this.updateLevel();
@@ -276,14 +306,46 @@ class SpaceImpactCard extends HTMLElement {
 
   shoot() {
     const now = Date.now();
-    if (!this.lastShot || now - this.lastShot > 250) {
-      this.bullets.push({
-        x: this.player.x + this.player.width,
-        y: this.player.y + this.player.height / 2 - 1,
-        width: 4,
-        height: 2,
-        speed: 4
-      });
+    const fireRate = this.rapidFire ? 150 : 250; // Rapid fire = 150ms cooldown
+
+    if (!this.lastShot || now - this.lastShot > fireRate) {
+      if (this.tripleShot) {
+        // Triple shot - 3 bullets in spread pattern
+        this.bullets.push({
+          x: this.player.x + this.player.width,
+          y: this.player.y + this.player.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: 4,
+          vy: 0 // Straight
+        });
+        this.bullets.push({
+          x: this.player.x + this.player.width,
+          y: this.player.y + this.player.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: 4,
+          vy: -0.8 // Up diagonal
+        });
+        this.bullets.push({
+          x: this.player.x + this.player.width,
+          y: this.player.y + this.player.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: 4,
+          vy: 0.8 // Down diagonal
+        });
+      } else {
+        // Normal shot
+        this.bullets.push({
+          x: this.player.x + this.player.width,
+          y: this.player.y + this.player.height / 2 - 1,
+          width: 4,
+          height: 2,
+          speed: 4,
+          vy: 0
+        });
+      }
       this.lastShot = now;
     }
   }
@@ -442,13 +504,18 @@ class SpaceImpactCard extends HTMLElement {
   updateBoss() {
     if (!this.boss) return;
 
+    // Boss phase system - enraged when HP < 50%
+    const healthPercent = this.boss.health / this.boss.maxHealth;
+    const isEnraged = healthPercent < 0.5;
+
     // Move boss left
     if (this.boss.x > this.canvas.width - 80) {
       this.boss.x -= this.boss.speed;
     } else {
-      // Vertical movement pattern
-      this.boss.movePattern += 0.05;
-      this.boss.y += Math.sin(this.boss.movePattern) * this.boss.moveSpeed;
+      // Vertical movement pattern (faster when enraged)
+      this.boss.movePattern += isEnraged ? 0.08 : 0.05;
+      const moveSpeed = isEnraged ? this.boss.moveSpeed * 1.5 : this.boss.moveSpeed;
+      this.boss.y += Math.sin(this.boss.movePattern) * moveSpeed;
 
       // Keep boss in bounds
       if (this.boss.y < 10) this.boss.y = 10;
@@ -456,15 +523,17 @@ class SpaceImpactCard extends HTMLElement {
         this.boss.y = this.canvas.height - this.boss.height - 10;
       }
 
-      // Boss shoots
+      // Boss shoots (faster when enraged)
       const now = Date.now();
-      if (!this.boss.lastShot || now - this.boss.lastShot > 1500) {
+      const shootInterval = isEnraged ? 900 : 1500; // Faster shooting when low HP
+
+      if (!this.boss.lastShot || now - this.boss.lastShot > shootInterval) {
         this.enemyBullets.push({
           x: this.boss.x,
           y: this.boss.y + this.boss.height / 2 - 1,
           width: 4,
           height: 2,
-          speedX: -2.5,
+          speedX: isEnraged ? -3 : -2.5, // Faster bullets when enraged
           speedY: 0
         });
         this.boss.lastShot = now;
@@ -484,6 +553,28 @@ class SpaceImpactCard extends HTMLElement {
       }
     }
 
+    // Update power-ups timers
+    if (this.tripleShot) {
+      this.tripleShotTime -= deltaTime;
+      if (this.tripleShotTime <= 0) {
+        this.tripleShot = false;
+        this.tripleShotTime = 0;
+      }
+    }
+    if (this.rapidFire) {
+      this.rapidFireTime -= deltaTime;
+      if (this.rapidFireTime <= 0) {
+        this.rapidFire = false;
+        this.rapidFireTime = 0;
+      }
+    }
+
+    // Update screen shake
+    if (this.screenShake > 0) {
+      this.screenShake -= deltaTime;
+      if (this.screenShake < 0) this.screenShake = 0;
+    }
+
     // Check if boss should spawn
     if (this.score >= this.nextBossScore && !this.bossActive && !this.boss) {
       this.spawnBoss();
@@ -500,7 +591,8 @@ class SpaceImpactCard extends HTMLElement {
     // Move bullets
     this.bullets = this.bullets.filter(bullet => {
       bullet.x += bullet.speed;
-      return bullet.x < this.canvas.width && bullet.x > 0;
+      if (bullet.vy) bullet.y += bullet.vy; // Support diagonal bullets from triple shot
+      return bullet.x < this.canvas.width && bullet.x > 0 && bullet.y > -10 && bullet.y < this.canvas.height + 10;
     });
 
     // Move enemy bullets
@@ -604,6 +696,11 @@ class SpaceImpactCard extends HTMLElement {
             enemiesToRemove.add(enemyIndex);
             this.score += enemy.type === 'large' ? 20 : 10;
             this.updateScore();
+
+            // Spawn power-up randomly (15% chance)
+            if (Math.random() < 0.15) {
+              this.spawnPowerup(enemy.x, enemy.y);
+            }
           }
         }
       });
@@ -664,6 +761,10 @@ class SpaceImpactCard extends HTMLElement {
         this.createExplosion(this.boss.x + this.boss.width*2/3, this.boss.y + this.boss.height*2/3);
         this.createExplosion(this.boss.x + 5, this.boss.y + 5);
         this.createExplosion(this.boss.x + this.boss.width - 5, this.boss.y + this.boss.height - 5);
+
+        // SCREEN SHAKE!
+        this.screenShake = 500; // Shake for 500ms
+        this.shakeIntensity = 4; // 4px shake intensity
 
         this.score += 100 + (this.level * 50);
         this.updateScore();
@@ -774,6 +875,20 @@ class SpaceImpactCard extends HTMLElement {
       }
     }
 
+    // Update and move power-ups
+    this.powerups = this.powerups.filter(powerup => {
+      powerup.x -= 1.5 * this.gameSpeed; // Move left with game speed
+      powerup.time += 16; // Animation timer
+
+      // Check collision with player
+      if (this.checkCollision(this.player, powerup)) {
+        this.activatePowerup(powerup.type);
+        return false; // Remove power-up
+      }
+
+      return powerup.x > -powerup.width; // Remove if off-screen
+    });
+
     // Update particles
     this.particles = this.particles.filter(particle => {
       particle.life--;
@@ -806,6 +921,16 @@ class SpaceImpactCard extends HTMLElement {
   loseLife() {
     if (this.invincible) return;
 
+    // Shield power-up absorbs one hit
+    if (this.shield) {
+      this.shield = false;
+      this.createExplosion(this.player.x + this.player.width/2, this.player.y + this.player.height/2);
+      // Make player invincible briefly after shield breaks
+      this.invincible = true;
+      this.invincibleTime = 1000;
+      return;
+    }
+
     this.lives--;
     this.updateLives();
 
@@ -828,10 +953,23 @@ class SpaceImpactCard extends HTMLElement {
     this.gameOver = true;
     this.finalScoreElement.textContent = this.score;
     this.gameOverElement.classList.remove('game-over-hidden');
+
+    // Update high score
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      this.saveHighScore();
+      this.updateHighScore();
+    }
   }
 
   updateScore() {
     this.scoreElement.textContent = this.score;
+    // Check if we beat high score
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      this.saveHighScore();
+      this.updateHighScore();
+    }
   }
 
   updateLevel() {
@@ -840,6 +978,59 @@ class SpaceImpactCard extends HTMLElement {
 
   updateLives() {
     this.livesElement.textContent = this.lives;
+  }
+
+  updateHighScore() {
+    if (this.highScoreElement) {
+      this.highScoreElement.textContent = this.highScore;
+    }
+  }
+
+  loadHighScore() {
+    try {
+      const saved = localStorage.getItem('spaceImpactHighScore');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  saveHighScore() {
+    try {
+      localStorage.setItem('spaceImpactHighScore', this.highScore.toString());
+    } catch (e) {
+      // Failed to save, ignore
+    }
+  }
+
+  spawnPowerup(x, y) {
+    const types = ['tripleShot', 'rapidFire', 'shield'];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    this.powerups.push({
+      type: type,
+      x: x,
+      y: y,
+      width: 10,
+      height: 10,
+      time: 0 // For animation
+    });
+  }
+
+  activatePowerup(type) {
+    switch (type) {
+      case 'tripleShot':
+        this.tripleShot = true;
+        this.tripleShotTime = 8000; // 8 seconds
+        break;
+      case 'rapidFire':
+        this.rapidFire = true;
+        this.rapidFireTime = 8000; // 8 seconds
+        break;
+      case 'shield':
+        this.shield = true;
+        break;
+    }
   }
 
   drawPixel(x, y, size = 2) {
@@ -852,12 +1043,21 @@ class SpaceImpactCard extends HTMLElement {
       return; // Skip drawing every other 100ms
     }
 
-    this.ctx.fillStyle = '#2d3a1f';
-
-    // Classic spaceship shape made of pixels
     const px = Math.floor(this.player.x);
     const py = Math.floor(this.player.y);
 
+    // Draw shield around player if active
+    if (this.shield) {
+      this.ctx.strokeStyle = '#2d3a1f';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.arc(px + this.player.width/2, py + this.player.height/2, this.player.width, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
+
+    this.ctx.fillStyle = '#2d3a1f';
+
+    // Classic spaceship shape made of pixels
     // Nose
     this.drawPixel(px + 10, py + 2, 2);
     // Body
@@ -924,6 +1124,54 @@ class SpaceImpactCard extends HTMLElement {
         this.drawPixel(particle.x, particle.y, 2);
       } else {
         this.drawPixel(particle.x, particle.y, 1);
+      }
+    });
+  }
+
+  drawPowerups() {
+    this.ctx.fillStyle = '#2d3a1f';
+    this.powerups.forEach(powerup => {
+      const px = Math.floor(powerup.x);
+      const py = Math.floor(powerup.y);
+
+      // Animated pulsing effect
+      const pulse = Math.sin(powerup.time / 100) > 0;
+
+      if (powerup.type === 'tripleShot') {
+        // Draw "3" icon
+        if (pulse) {
+          this.drawPixel(px, py, 2);
+          this.drawPixel(px + 2, py, 2);
+          this.drawPixel(px + 4, py, 2);
+          this.drawPixel(px + 4, py + 2, 2);
+          this.drawPixel(px + 2, py + 4, 2);
+          this.drawPixel(px + 4, py + 4, 2);
+          this.drawPixel(px, py + 8, 2);
+          this.drawPixel(px + 2, py + 8, 2);
+          this.drawPixel(px + 4, py + 8, 2);
+          this.drawPixel(px + 4, py + 6, 2);
+        }
+      } else if (powerup.type === 'rapidFire') {
+        // Draw ">>" icon
+        if (pulse) {
+          this.drawPixel(px, py + 2, 2);
+          this.drawPixel(px + 2, py, 2);
+          this.drawPixel(px + 2, py + 4, 2);
+          this.drawPixel(px + 4, py + 2, 2);
+          this.drawPixel(px + 6, py, 2);
+          this.drawPixel(px + 6, py + 4, 2);
+        }
+      } else if (powerup.type === 'shield') {
+        // Draw shield icon
+        if (pulse) {
+          this.drawPixel(px + 2, py, 2);
+          this.drawPixel(px, py + 2, 2);
+          this.drawPixel(px + 4, py + 2, 2);
+          this.drawPixel(px, py + 4, 2);
+          this.drawPixel(px + 4, py + 4, 2);
+          this.drawPixel(px + 2, py + 6, 2);
+          this.drawPixel(px + 2, py + 8, 2);
+        }
       }
     });
   }
@@ -1125,6 +1373,14 @@ class SpaceImpactCard extends HTMLElement {
   }
 
   drawGame() {
+    // Apply screen shake
+    this.ctx.save();
+    if (this.screenShake > 0) {
+      const shakeX = (Math.random() - 0.5) * this.shakeIntensity * 2;
+      const shakeY = (Math.random() - 0.5) * this.shakeIntensity * 2;
+      this.ctx.translate(shakeX, shakeY);
+    }
+
     // Clear canvas with Nokia greenish background
     this.ctx.fillStyle = '#a4b47a';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1137,6 +1393,7 @@ class SpaceImpactCard extends HTMLElement {
       this.ctx.fillText('SPACE IMPACT', this.canvas.width / 2, this.canvas.height / 2 - 20);
       this.ctx.font = '14px "Courier New", monospace';
       this.ctx.fillText('Press ENTER to start', this.canvas.width / 2, this.canvas.height / 2 + 20);
+      this.ctx.restore();
       return;
     }
 
@@ -1148,6 +1405,7 @@ class SpaceImpactCard extends HTMLElement {
     this.drawPlayer();
     this.drawBullets();
     this.drawEnemies();
+    this.drawPowerups();
     this.drawParticles();
 
     // Draw boss warning
@@ -1163,6 +1421,29 @@ class SpaceImpactCard extends HTMLElement {
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(1, 1, this.canvas.width - 2, this.canvas.height - 2);
 
+    // Draw power-up indicators (top left corner)
+    let powerupY = 10;
+    if (this.tripleShot) {
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = '10px "Courier New", monospace';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('3-SHOT: ' + Math.ceil(this.tripleShotTime / 1000) + 's', 10, powerupY);
+      powerupY += 12;
+    }
+    if (this.rapidFire) {
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = '10px "Courier New", monospace';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('RAPID: ' + Math.ceil(this.rapidFireTime / 1000) + 's', 10, powerupY);
+      powerupY += 12;
+    }
+    if (this.shield) {
+      this.ctx.fillStyle = '#2d3a1f';
+      this.ctx.font = '10px "Courier New", monospace';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('SHIELD', 10, powerupY);
+    }
+
     // Draw pause overlay
     if (this.paused) {
       this.ctx.fillStyle = 'rgba(164, 180, 122, 0.8)';
@@ -1176,6 +1457,9 @@ class SpaceImpactCard extends HTMLElement {
       this.ctx.font = '12px "Courier New", monospace';
       this.ctx.fillText('Press P or ESC to continue', this.canvas.width / 2, this.canvas.height / 2 + 15);
     }
+
+    // Restore canvas after screen shake
+    this.ctx.restore();
   }
 
   gameLoop() {
