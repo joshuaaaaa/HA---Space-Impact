@@ -1,13 +1,12 @@
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyB9hFgDqxD4iKoS8hxpgr50IZ8o-Cuhryk",
-  authDomain: "joshuaaa-b3554.firebaseapp.com",
-  databaseURL: "https://joshuaaa-b3554-default-rtdb.firebaseio.com",
-  projectId: "joshuaaa-b3554",
-  storageBucket: "joshuaaa-b3554.firebasestorage.app",
-  messagingSenderId: "353770931124",
-  appId: "1:353770931124:web:9097c6f8c7a2efba4a28e1",
-  measurementId: "G-SR5WPGSY3D"
+  apiKey: "AIzaSyAF9P___XJOjix4ckD-DazSzyz5y3IxrjA",
+  authDomain: "space-impact-gam.firebaseapp.com",
+  databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "space-impact-gam",
+  storageBucket: "space-impact-gam.firebasestorage.app",
+  messagingSenderId: "408256111722",
+  appId: "1:408256111722:web:7df11308768c90132b9613"
 };
 
 class SpaceImpactCard extends HTMLElement {
