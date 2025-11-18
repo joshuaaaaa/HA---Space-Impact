@@ -15,9 +15,12 @@ Retro Nokia Space Impact game as a Lovelace card for Home Assistant.
 ✨ **Authentic retro experience** - Black and white Nokia-style pixel graphics
 🎮 **Simple controls** - Arrow keys and spacebar
 📊 **Score tracking** - Points counter in the corner
+🏆 **Global Top 100 Leaderboard** - Compete with players worldwide!
 🚀 **Progressive difficulty** - Game speeds up over time
 ☄️ **Multiple obstacles** - Enemies, meteorites, and barriers
 💥 **Explosion effects** - Pixel-perfect particle animations
+⚡ **Power-ups** - Triple shot, rapid fire, and shield
+🎯 **Boss battles** - Epic fights with large enemies
 
 ## Installation
 
@@ -56,12 +59,56 @@ type: custom:space-impact-card
 - **↑↓ Arrow keys**: Move ship up/down
 - **Spacebar**: Shoot
 - **Enter**: Start game / Restart after Game Over
+- **P or Esc**: Pause
+
+## Global Leaderboard
+
+The game now features a **global top 100 leaderboard** where you can compete with players from around the world!
+
+### How it works:
+
+1. After game over, a dialog automatically appears to enter your name
+2. Your score is submitted to the global leaderboard
+3. Click the **"View Global Top 100"** button to see the rankings
+4. Your recent score will be highlighted
+5. Top 3 players get medals 🥇🥈🥉
+
+### Firebase Setup (for administrators)
+
+To enable the leaderboard functionality, you need to set up a Firebase project:
+
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Create a Realtime Database
+3. Set up Database Rules (see below)
+4. Copy the configuration to `space-impact-card.js` (lines 2-10)
+
+**Recommended Database Rules:**
+```json
+{
+  "rules": {
+    "leaderboard": {
+      ".read": true,
+      ".write": true,
+      "$entry": {
+        ".validate": "newData.hasChildren(['name', 'score', 'level', 'timestamp'])"
+      }
+    }
+  }
+}
+```
+
+> **Note:** For a shared global leaderboard, use the same Firebase configuration across all game instances.
 
 ## Gameplay
 
 - **Small enemies**: 10 points
 - **Large enemies**: 20 points (require 3 hits)
-- **Meteorites**: 15 points
+- **Small meteorites**: 15 points
+- **Medium meteorites**: 25 points
+- **Large meteorites**: 40 points
+- **Giant meteorites**: 60 points
+- **Turrets**: 30 points
+- **Boss enemies**: 100+ points
 - **Obstacles**: Appear on top and bottom - avoid them!
 
 Navigate your ship through space, destroy enemies and meteorites, and avoid obstacles. The game gets progressively harder as you score more points!

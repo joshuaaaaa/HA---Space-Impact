@@ -11,9 +11,12 @@ Retro Nokia Space Impact hra jako Lovelace karta pro Home Assistant.
 ✨ **Autentický retro zážitek** - Černobílá Nokia pixelová grafika
 🎮 **Jednoduché ovládání** - Šipky a mezerník
 📊 **Sledování skóre** - Počítadlo bodů v rohu
+🏆 **Globální Top 100 Leaderboard** - Soutěžte s hráči po celém světě!
 🚀 **Postupná obtížnost** - Hra se postupně zrychluje
 ☄️ **Různé překážky** - Nepřátelé, meteority a bariéry
 💥 **Efekty výbuchů** - Pixelové animace částic
+⚡ **Power-upy** - Triple shot, rapid fire a štít
+🎯 **Boss souboje** - Epické bitvy s velkými nepřáteli
 
 ## Instalace
 
@@ -52,6 +55,45 @@ type: custom:space-impact-card
 - **↑↓ Šipky**: Pohyb lodi nahoru/dolů
 - **Mezerník**: Střelba
 - **Enter**: Start hry / Restart po Game Over
+- **P nebo Esc**: Pauza
+
+## Globální Leaderboard
+
+Hra nyní obsahuje **globální top 100 žebříček**, kde můžete soutěžit s hráči z celého světa!
+
+### Jak to funguje:
+
+1. Po skončení hry se automaticky zobrazí dialog pro zadání jména
+2. Vaše skóre se odešle na globální leaderboard
+3. Klikněte na tlačítko **"View Global Top 100"** pro zobrazení žebříčku
+4. Vaše nedávné skóre bude zvýrazněno
+5. Top 3 hráči získají medaile 🥇🥈🥉
+
+### Nastavení Firebase (pro správce)
+
+Pro funkční leaderboard je potřeba nastavit Firebase projekt:
+
+1. Vytvořte Firebase projekt na [Firebase Console](https://console.firebase.google.com/)
+2. Vytvořte Realtime Database
+3. Nastavte Database Rules (viz níže)
+4. Zkopírujte konfiguraci do `space-impact-card.js` (řádky 2-10)
+
+**Doporučené Database Rules:**
+```json
+{
+  "rules": {
+    "leaderboard": {
+      ".read": true,
+      ".write": true,
+      "$entry": {
+        ".validate": "newData.hasChildren(['name', 'score', 'level', 'timestamp'])"
+      }
+    }
+  }
+}
+```
+
+> **Poznámka:** Pro sdílený globální leaderboard použijte stejnou Firebase konfiguraci pro všechny instance hry.
 
 ## Hratelnost
 
