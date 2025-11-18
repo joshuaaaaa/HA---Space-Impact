@@ -1,3 +1,14 @@
+// Firebase Configuration
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBkxYj8pP9rX3mJ4K5L6M7N8O9P0Q1R2S3",
+  authDomain: "space-impact-leaderboard.firebaseapp.com",
+  projectId: "space-impact-leaderboard",
+  storageBucket: "space-impact-leaderboard.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456",
+  databaseURL: "https://space-impact-leaderboard-default-rtdb.firebaseio.com"
+};
+
 class SpaceImpactCard extends HTMLElement {
   constructor() {
     super();
@@ -46,6 +57,15 @@ class SpaceImpactCard extends HTMLElement {
 
     // High score
     this.highScore = this.loadHighScore();
+
+    // Leaderboard
+    this.leaderboardVisible = false;
+    this.leaderboardData = [];
+    this.playerName = this.loadPlayerName();
+    this.firebaseInitialized = false;
+
+    // Initialize Firebase
+    this.initializeFirebase();
   }
 
   setConfig(config) {
@@ -128,6 +148,120 @@ class SpaceImpactCard extends HTMLElement {
         .game-over-hidden {
           display: none;
         }
+
+        .modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+
+        .modal-hidden {
+          display: none;
+        }
+
+        .modal-content {
+          background: #c7d6b5;
+          padding: 24px;
+          border-radius: 8px;
+          border: 3px solid #2d3a1f;
+          max-width: 400px;
+          max-height: 80vh;
+          overflow-y: auto;
+          font-family: 'Courier New', monospace;
+          color: #2d3a1f;
+        }
+
+        .modal-header {
+          font-size: 18px;
+          font-weight: bold;
+          margin-bottom: 16px;
+          text-align: center;
+          border-bottom: 2px solid #2d3a1f;
+          padding-bottom: 8px;
+        }
+
+        .name-input-container {
+          text-align: center;
+          margin-top: 16px;
+        }
+
+        .name-input {
+          font-family: 'Courier New', monospace;
+          font-size: 14px;
+          padding: 8px;
+          border: 2px solid #2d3a1f;
+          border-radius: 4px;
+          background: #a4b47a;
+          color: #2d3a1f;
+          width: 200px;
+          margin: 8px 0;
+        }
+
+        .btn {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          padding: 8px 16px;
+          border: 2px solid #2d3a1f;
+          border-radius: 4px;
+          background: #9ba883;
+          color: #2d3a1f;
+          cursor: pointer;
+          margin: 4px;
+          font-weight: bold;
+        }
+
+        .btn:hover {
+          background: #a4b47a;
+        }
+
+        .btn:active {
+          background: #8a9972;
+        }
+
+        .leaderboard-list {
+          list-style: none;
+          padding: 0;
+          margin: 16px 0;
+          font-size: 12px;
+        }
+
+        .leaderboard-item {
+          padding: 6px 8px;
+          margin: 4px 0;
+          background: #9ba883;
+          border-radius: 4px;
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .leaderboard-item.highlight {
+          background: #a4b47a;
+          border: 2px solid #2d3a1f;
+          font-weight: bold;
+        }
+
+        .leaderboard-rank {
+          font-weight: bold;
+          margin-right: 8px;
+        }
+
+        .leaderboard-btn {
+          margin-top: 8px;
+          font-size: 11px;
+        }
+
+        .loading {
+          text-align: center;
+          padding: 20px;
+          font-size: 14px;
+        }
       </style>
 
       <div class="game-container">
@@ -152,6 +286,41 @@ class SpaceImpactCard extends HTMLElement {
 
         <div class="controls">
           ↑↓ Move | SPACE Shoot | ENTER Start/Restart | P Pause
+          <br>
+          <button id="leaderboardBtn" class="btn leaderboard-btn">View Global Top 100</button>
+        </div>
+      </div>
+
+      <!-- Name Input Modal -->
+      <div id="nameModal" class="modal modal-hidden">
+        <div class="modal-content">
+          <div class="modal-header">SUBMIT YOUR SCORE</div>
+          <div style="text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; margin: 16px 0;">
+              <span id="submitScore">0</span> points
+            </div>
+            <div class="name-input-container">
+              <div style="margin-bottom: 8px;">Enter your name:</div>
+              <input type="text" id="nameInput" class="name-input" maxlength="20" placeholder="Player">
+              <div style="margin-top: 16px;">
+                <button id="submitBtn" class="btn">Submit to Leaderboard</button>
+                <button id="skipBtn" class="btn">Skip</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard Modal -->
+      <div id="leaderboardModal" class="modal modal-hidden">
+        <div class="modal-content">
+          <div class="modal-header">GLOBAL TOP 100</div>
+          <div id="leaderboardContent">
+            <div class="loading">Loading...</div>
+          </div>
+          <div style="text-align: center; margin-top: 16px;">
+            <button id="closeLeaderboardBtn" class="btn">Close</button>
+          </div>
         </div>
       </div>
     `;
@@ -167,6 +336,17 @@ class SpaceImpactCard extends HTMLElement {
     this.gameOverElement = this.shadowRoot.getElementById('gameOver');
     this.finalScoreElement = this.shadowRoot.getElementById('finalScore');
 
+    // Leaderboard elements
+    this.nameModal = this.shadowRoot.getElementById('nameModal');
+    this.nameInput = this.shadowRoot.getElementById('nameInput');
+    this.submitScoreElement = this.shadowRoot.getElementById('submitScore');
+    this.submitBtn = this.shadowRoot.getElementById('submitBtn');
+    this.skipBtn = this.shadowRoot.getElementById('skipBtn');
+    this.leaderboardModal = this.shadowRoot.getElementById('leaderboardModal');
+    this.leaderboardContent = this.shadowRoot.getElementById('leaderboardContent');
+    this.leaderboardBtn = this.shadowRoot.getElementById('leaderboardBtn');
+    this.closeLeaderboardBtn = this.shadowRoot.getElementById('closeLeaderboardBtn');
+
     // Disable smoothing for pixelated look
     this.ctx.imageSmoothingEnabled = false;
 
@@ -175,6 +355,17 @@ class SpaceImpactCard extends HTMLElement {
     this.boundKeyUp = this.handleKeyUp.bind(this);
     window.addEventListener('keydown', this.boundKeyDown);
     window.addEventListener('keyup', this.boundKeyUp);
+
+    // Bind button events
+    this.leaderboardBtn.addEventListener('click', () => this.showLeaderboard());
+    this.closeLeaderboardBtn.addEventListener('click', () => this.hideLeaderboard());
+    this.submitBtn.addEventListener('click', () => this.submitScore());
+    this.skipBtn.addEventListener('click', () => this.hideNameModal());
+
+    // Pre-fill name input if player has saved name
+    if (this.playerName) {
+      this.nameInput.value = this.playerName;
+    }
 
     // Start game loop
     this.lastTime = Date.now();
@@ -960,6 +1151,13 @@ class SpaceImpactCard extends HTMLElement {
       this.saveHighScore();
       this.updateHighScore();
     }
+
+    // Show name input modal if score > 0
+    if (this.score > 0) {
+      setTimeout(() => {
+        this.showNameModal();
+      }, 1000);
+    }
   }
 
   updateScore() {
@@ -1475,6 +1673,193 @@ class SpaceImpactCard extends HTMLElement {
     this.drawGame();
 
     this.animationFrame = requestAnimationFrame(() => this.gameLoop());
+  }
+
+  // Firebase and Leaderboard Functions
+
+  async initializeFirebase() {
+    try {
+      // Load Firebase SDK dynamically
+      if (!window.firebase) {
+        await this.loadFirebaseSDK();
+      }
+
+      // Initialize Firebase if not already initialized
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+
+      this.db = firebase.database();
+      this.firebaseInitialized = true;
+    } catch (error) {
+      console.error('Firebase initialization failed:', error);
+      this.firebaseInitialized = false;
+    }
+  }
+
+  async loadFirebaseSDK() {
+    return new Promise((resolve, reject) => {
+      const script1 = document.createElement('script');
+      script1.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js';
+      script1.onload = () => {
+        const script2 = document.createElement('script');
+        script2.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js';
+        script2.onload = resolve;
+        script2.onerror = reject;
+        document.head.appendChild(script2);
+      };
+      script1.onerror = reject;
+      document.head.appendChild(script1);
+    });
+  }
+
+  loadPlayerName() {
+    try {
+      const saved = localStorage.getItem('spaceImpactPlayerName');
+      return saved || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  savePlayerName(name) {
+    try {
+      localStorage.setItem('spaceImpactPlayerName', name);
+      this.playerName = name;
+    } catch (e) {
+      // Failed to save, ignore
+    }
+  }
+
+  showNameModal() {
+    this.submitScoreElement.textContent = this.score;
+    this.nameModal.classList.remove('modal-hidden');
+    // Focus on input
+    setTimeout(() => {
+      this.nameInput.focus();
+    }, 100);
+  }
+
+  hideNameModal() {
+    this.nameModal.classList.add('modal-hidden');
+  }
+
+  async submitScore() {
+    const name = this.nameInput.value.trim() || 'Player';
+
+    // Save player name for future use
+    this.savePlayerName(name);
+
+    // Hide modal
+    this.hideNameModal();
+
+    if (!this.firebaseInitialized) {
+      console.error('Firebase not initialized');
+      return;
+    }
+
+    try {
+      // Submit score to Firebase
+      const scoreRef = this.db.ref('leaderboard');
+      await scoreRef.push({
+        name: name,
+        score: this.score,
+        level: this.level,
+        timestamp: Date.now()
+      });
+
+      console.log('Score submitted successfully!');
+
+      // Show leaderboard after submission
+      setTimeout(() => {
+        this.showLeaderboard();
+      }, 500);
+    } catch (error) {
+      console.error('Failed to submit score:', error);
+    }
+  }
+
+  async showLeaderboard() {
+    this.leaderboardModal.classList.remove('modal-hidden');
+    this.leaderboardContent.innerHTML = '<div class="loading">Loading...</div>';
+
+    if (!this.firebaseInitialized) {
+      this.leaderboardContent.innerHTML = '<div style="text-align: center; padding: 20px;">Leaderboard unavailable</div>';
+      return;
+    }
+
+    try {
+      await this.fetchLeaderboard();
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+      this.leaderboardContent.innerHTML = '<div style="text-align: center; padding: 20px;">Failed to load leaderboard</div>';
+    }
+  }
+
+  hideLeaderboard() {
+    this.leaderboardModal.classList.add('modal-hidden');
+  }
+
+  async fetchLeaderboard() {
+    try {
+      const snapshot = await this.db.ref('leaderboard')
+        .orderByChild('score')
+        .limitToLast(100)
+        .once('value');
+
+      const scores = [];
+      snapshot.forEach((childSnapshot) => {
+        scores.push({
+          id: childSnapshot.key,
+          ...childSnapshot.val()
+        });
+      });
+
+      // Sort by score descending (highest first)
+      scores.sort((a, b) => b.score - a.score);
+
+      this.leaderboardData = scores;
+      this.renderLeaderboard();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  renderLeaderboard() {
+    if (this.leaderboardData.length === 0) {
+      this.leaderboardContent.innerHTML = '<div style="text-align: center; padding: 20px;">No scores yet. Be the first!</div>';
+      return;
+    }
+
+    let html = '<ul class="leaderboard-list">';
+
+    this.leaderboardData.forEach((entry, index) => {
+      const rank = index + 1;
+      const isCurrentPlayer = entry.name === this.playerName &&
+                              Math.abs(entry.timestamp - Date.now()) < 60000; // Within last minute
+
+      const highlightClass = isCurrentPlayer ? 'highlight' : '';
+      const medal = rank === 1 ? '🥇 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : '';
+
+      html += `
+        <li class="leaderboard-item ${highlightClass}">
+          <span>
+            <span class="leaderboard-rank">${medal}#${rank}</span>
+            ${this.escapeHtml(entry.name)}
+          </span>
+          <span><strong>${entry.score}</strong> pts (Lvl ${entry.level})</span>
+        </li>
+      `;
+    });
+
+    html += '</ul>';
+    this.leaderboardContent.innerHTML = html;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   getCardSize() {
