@@ -1,12 +1,19 @@
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAF9P___XJOjix4ckD-DazSzyz5y3IxrjA",
+
   authDomain: "space-impact-gam.firebaseapp.com",
-  databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app",
+
   projectId: "space-impact-gam",
+
   storageBucket: "space-impact-gam.firebasestorage.app",
+
   messagingSenderId: "408256111722",
-  appId: "1:408256111722:web:7df11308768c90132b9613"
+
+  appId: "1:408256111722:web:7df11308768c90132b9613",
+
+  databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app"
+
 };
 
 class SpaceImpactCard extends HTMLElement {
