@@ -1,12 +1,12 @@
 // Firebase Configuration
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBkxYj8pP9rX3mJ4K5L6M7N8O9P0Q1R2S3",
-  authDomain: "space-impact-leaderboard.firebaseapp.com",
-  projectId: "space-impact-leaderboard",
-  storageBucket: "space-impact-leaderboard.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456",
-  databaseURL: "https://space-impact-leaderboard-default-rtdb.firebaseio.com"
+  apiKey: "AIzaSyAF9P___XJOjix4ckD-DazSzyz5y3IxrjA",
+  authDomain: "space-impact-gam.firebaseapp.com",
+  projectId: "space-impact-gam",
+  storageBucket: "space-impact-gam.firebasestorage.app",
+  messagingSenderId: "408256111722",
+  appId: "1:408256111722:web:7df11308768c90132b9613",
+  databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 class SpaceImpactCard extends HTMLElement {
