@@ -65,6 +65,17 @@ class SpaceImpactCard extends HTMLElement {
     // High score
     this.highScore = this.loadHighScore();
 
+    // Firebase Configuration
+    this.firebaseConfig = {
+      apiKey: "AIzaSyAF9P___XJOjix4ckD-DazSzyz5y3IxrjA",
+      authDomain: "space-impact-gam.firebaseapp.com",
+      projectId: "space-impact-gam",
+      storageBucket: "space-impact-gam.firebasestorage.app",
+      messagingSenderId: "408256111722",
+      appId: "1:408256111722:web:7df11308768c90132b9613",
+      databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+
     // Leaderboard
     this.leaderboardVisible = false;
     this.leaderboardData = [];
@@ -1693,7 +1704,7 @@ class SpaceImpactCard extends HTMLElement {
 
       // Initialize Firebase if not already initialized
       if (!firebase.apps.length) {
-        firebase.initializeApp(FIREBASE_CONFIG);
+        firebase.initializeApp(this.firebaseConfig);
       }
 
       this.db = firebase.database();
