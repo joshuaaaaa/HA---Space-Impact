@@ -73,31 +73,7 @@ The game now features a **global top 100 leaderboard** where you can compete wit
 4. Your recent score will be highlighted
 5. Top 3 players get medals 🥇🥈🥉
 
-### Firebase Setup (for administrators)
 
-To enable the leaderboard functionality, you need to set up a Firebase project:
-
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Create a Realtime Database
-3. Set up Database Rules (see below)
-4. Copy the configuration to `space-impact-card.js` (lines 2-10)
-
-**Recommended Database Rules:**
-```json
-{
-  "rules": {
-    "leaderboard": {
-      ".read": true,
-      ".write": true,
-      "$entry": {
-        ".validate": "newData.hasChildren(['name', 'score', 'level', 'timestamp'])"
-      }
-    }
-  }
-}
-```
-
-> **Note:** For a shared global leaderboard, use the same Firebase configuration across all game instances.
 
 ## Gameplay
 
