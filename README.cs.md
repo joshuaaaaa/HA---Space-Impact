@@ -69,31 +69,7 @@ Hra nyní obsahuje **globální top 100 žebříček**, kde můžete soutěžit 
 4. Vaše nedávné skóre bude zvýrazněno
 5. Top 3 hráči získají medaile 🥇🥈🥉
 
-### Nastavení Firebase (pro správce)
 
-Pro funkční leaderboard je potřeba nastavit Firebase projekt:
-
-1. Vytvořte Firebase projekt na [Firebase Console](https://console.firebase.google.com/)
-2. Vytvořte Realtime Database
-3. Nastavte Database Rules (viz níže)
-4. Zkopírujte konfiguraci do `space-impact-card.js` (řádky 2-10)
-
-**Doporučené Database Rules:**
-```json
-{
-  "rules": {
-    "leaderboard": {
-      ".read": true,
-      ".write": true,
-      "$entry": {
-        ".validate": "newData.hasChildren(['name', 'score', 'level', 'timestamp'])"
-      }
-    }
-  }
-}
-```
-
-> **Poznámka:** Pro sdílený globální leaderboard použijte stejnou Firebase konfiguraci pro všechny instance hry.
 
 ## Hratelnost
 
