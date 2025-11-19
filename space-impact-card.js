@@ -14,7 +14,7 @@ const firebaseConfig = {
 
   databaseURL: "https://space-impact-gam-default-rtdb.europe-west1.firebasedatabase.app"
 
-};
+  };
 
 class SpaceImpactCard extends HTMLElement {
   constructor() {
